@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DimoraApp.Mysplash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">#313131</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splashdark</item>
+        <item name="postSplashScreenTheme">@style/Theme.DimoraApp</item>
+    </style>
+</resources>
