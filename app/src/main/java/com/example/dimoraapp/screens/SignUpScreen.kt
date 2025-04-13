@@ -32,6 +32,11 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.dimoraapp.ui.theme.DMserif
 import com.example.dimoraapp.R
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.dimoraapp.viewmodel.SignUpViewModel
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,8 +48,18 @@ fun SignUpScreen(navController: NavController) {
     val email = remember { mutableStateOf("") }
     val username = remember { mutableStateOf("") }
     val contact = remember { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") } // Moved here
+    var confirmpassword by rememberSaveable { mutableStateOf("") } // Moved here
 
-    Box(modifier = Modifier.fillMaxSize().background(Color.White), contentAlignment = Alignment.Center) {
+    val viewModel: SignUpViewModel = viewModel()
+    val context = LocalContext.current
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        contentAlignment = Alignment.Center
+    ) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -54,7 +69,7 @@ fun SignUpScreen(navController: NavController) {
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             item {
-                var height = if (isLandscape) 64.dp else 250.dp
+                val height = if (isLandscape) 64.dp else 250.dp
                 Spacer(Modifier.height(height))
                 Text(
                     text = stringResource(R.string.sup),
@@ -64,13 +79,14 @@ fun SignUpScreen(navController: NavController) {
                 )
             }
             val padding = if (isLandscape) 64.dp else 16.dp
-            items(listOf(
-                "Email" to email,
-                "Username" to username,
-                "Contact" to contact,
-            )) { (label, state) ->
+            items(
+                listOf(
+                    "Email" to email,
+                    "Username" to username,
+                    "Contact" to contact,
+                )
+            ) { (label, state) ->
                 TextField(
-
                     value = state.value,
                     onValueChange = { state.value = it },
                     label = { Text(label) },
@@ -90,21 +106,23 @@ fun SignUpScreen(navController: NavController) {
                 )
             }
             item {
-                var password by rememberSaveable { mutableStateOf("") }
-                var visiblity by remember { mutableStateOf(false) }
-                var icon = if (visiblity) painterResource(R.drawable.baseline_visibility_24)
+                var visibility by remember { mutableStateOf(false) }
+                val icon = if (visibility) painterResource(R.drawable.baseline_visibility_24)
                 else painterResource(R.drawable.baseline_visibility_off_24)
 
                 TextField(
-                    password, onValueChange = { password = it},
+                    value = password, // Access password here
+                    onValueChange = { password = it },
                     label = { Text("Password") },
                     trailingIcon = {
-                        IconButton(onClick = { visiblity = !visiblity }) {
-                            Icon(painter = icon
-                                , contentDescription = "visible")
+                        IconButton(onClick = { visibility = !visibility }) {
+                            Icon(
+                                painter = icon,
+                                contentDescription = "visible"
+                            )
                         }
                     },
-                    visualTransformation = if (visiblity) VisualTransformation.None
+                    visualTransformation = if (visibility) VisualTransformation.None
                     else PasswordVisualTransformation(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -119,21 +137,24 @@ fun SignUpScreen(navController: NavController) {
                         focusedLabelColor = MaterialTheme.colorScheme.surface
                     )
                 )
-                var confirmpassword by rememberSaveable { mutableStateOf("") }
-                var visiblity2 by remember { mutableStateOf(false) }
-                var icon2 = if (visiblity2) painterResource(R.drawable.baseline_visibility_24)
+
+                var visibility2 by remember { mutableStateOf(false) }
+                val icon2 = if (visibility2) painterResource(R.drawable.baseline_visibility_24)
                 else painterResource(R.drawable.baseline_visibility_off_24)
 
                 TextField(
-                    confirmpassword, onValueChange = { confirmpassword = it},
+                    value = confirmpassword, // Access confirmpassword here
+                    onValueChange = { confirmpassword = it },
                     label = { Text("Confirm Password") },
                     trailingIcon = {
-                        IconButton(onClick = { visiblity2 = !visiblity2 }) {
-                            Icon(painter = icon2
-                                , contentDescription = "visible")
+                        IconButton(onClick = { visibility2 = !visibility2 }) {
+                            Icon(
+                                painter = icon2,
+                                contentDescription = "visible"
+                            )
                         }
                     },
-                    visualTransformation = if (visiblity2) VisualTransformation.None
+                    visualTransformation = if (visibility2) VisualTransformation.None
                     else PasswordVisualTransformation(),
                     modifier = Modifier
                         .fillMaxWidth()
@@ -151,7 +172,11 @@ fun SignUpScreen(navController: NavController) {
             }
             item {
                 Row {
-                    Text(text = "Already have an account? ", fontSize = 14.sp, color = Color.Gray)
+                    Text(
+                        text = "Already have an account? ",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
                     ClickableText(
                         text = AnnotatedString("Sign in"),
                         onClick = { navController.navigate("signin") },
@@ -167,13 +192,34 @@ fun SignUpScreen(navController: NavController) {
         }
 
         FloatingActionButton(
-            onClick = { navController.navigate("signin") },
+            onClick = {
+                viewModel.signUp(
+                    email = email.value,
+                    username = username.value,
+                    contact = contact.value,
+                    password = password, // Now accessible here
+                    confirmPassword = confirmpassword // Now accessible here
+                ) { success, message ->
+                    if (success) {
+                        Toast.makeText(context, "Sign-up successful!", Toast.LENGTH_SHORT).show()
+                        navController.navigate("signin")
+                    } else {
+                        Toast.makeText(context, "Failed: $message", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = Color.White,
-            modifier = Modifier.align(Alignment.BottomEnd).padding(16.dp).size(80.dp),
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+                .size(80.dp),
             shape = CircleShape
         ) {
-            Icon(imageVector = Icons.Filled.ArrowForward, contentDescription = "Navigate to sign in")
+            Icon(
+                imageVector = Icons.Filled.ArrowForward,
+                contentDescription = "Navigate to sign in"
+            )
         }
     }
 }

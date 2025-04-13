@@ -1,6 +1,7 @@
 package com.example.dimoraapp.screens
 
 import android.content.res.Configuration
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -8,17 +9,14 @@ import androidx.compose.foundation.text.ClickableText
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -27,8 +25,10 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dimoraapp.R
+import com.example.dimoraapp.viewmodel.SignInViewModel
 import com.example.dimoraapp.ui.theme.DMserif
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -37,19 +37,23 @@ fun SignInScreen(navController: NavController) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
 
-    val username = remember { mutableStateOf("") }
+    val email = remember { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    var visibility by remember { mutableStateOf(false) }
+    val viewModel: SignInViewModel = viewModel() // Initialize SignInViewModel
+    val context = LocalContext.current
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(color = MaterialTheme.colorScheme.background),
-        contentAlignment = Alignment.Center // Centers content both vertically and horizontally
+        contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
             modifier = Modifier
-                .fillMaxWidth() // Slightly reduce width for better UI
+                .fillMaxWidth()
         ) {
             Text(
                 text = stringResource(R.string.sin),
@@ -61,45 +65,45 @@ fun SignInScreen(navController: NavController) {
             Spacer(Modifier.height(32.dp))
 
             val padding = if (isLandscape) 64.dp else 16.dp
-            listOf(
-                "Username" to username
-            ).forEach { (label, state) ->
-                TextField(
-                    value = state.value,
-                    onValueChange = { state.value = it },
-                    label = { Text(label) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(horizontal = padding)
-                        .shadow(4.dp, shape = MaterialTheme.shapes.medium),
-                    shape = MaterialTheme.shapes.medium,
-                    colors = TextFieldDefaults.textFieldColors(
-                        focusedIndicatorColor = Color.Transparent,
-                        unfocusedIndicatorColor = Color.Transparent,
-                        containerColor = MaterialTheme.colorScheme.tertiary,
-                        focusedLabelColor = MaterialTheme.colorScheme.surface
-                    )
+            TextField(
+                value = email.value,
+                onValueChange = { email.value = it },
+                label = { Text("Email") },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp)
+                    .padding(horizontal = padding)
+                    .shadow(4.dp, shape = MaterialTheme.shapes.medium),
+                shape = MaterialTheme.shapes.medium,
+                colors = TextFieldDefaults.textFieldColors(
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    focusedLabelColor = MaterialTheme.colorScheme.surface
                 )
-                Spacer(Modifier.height(16.dp))
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            val icon = if (visibility) {
+                painterResource(R.drawable.baseline_visibility_24)
+            } else {
+                painterResource(R.drawable.baseline_visibility_off_24)
             }
-            var password by rememberSaveable { mutableStateOf("") }
-            var visiblity by remember { mutableStateOf(false) }
-            var icon = if (visiblity) painterResource(R.drawable.baseline_visibility_24)
-            else painterResource(R.drawable.baseline_visibility_off_24)
 
             TextField(
-                password, onValueChange = { password = it},
-                placeholder = { Text("Password") },
+                value = password,
+                onValueChange = { password = it },
                 label = { Text("Password") },
                 trailingIcon = {
-                    IconButton(onClick = { visiblity = !visiblity }) {
-                        Icon(painter = icon
-                            , contentDescription = "visible")
+                    IconButton(onClick = { visibility = !visibility }) {
+                        Icon(
+                            painter = icon,
+                            contentDescription = "Toggle password visibility"
+                        )
                     }
                 },
-                visualTransformation = if (visiblity) VisualTransformation.None
-                else PasswordVisualTransformation(),
+                visualTransformation = if (visibility) VisualTransformation.None else PasswordVisualTransformation(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(70.dp)
@@ -113,6 +117,8 @@ fun SignInScreen(navController: NavController) {
                     focusedLabelColor = MaterialTheme.colorScheme.surface
                 )
             )
+
+            Spacer(Modifier.height(16.dp))
 
             Row {
                 Text(text = "Don't have an account? ", fontSize = 14.sp, color = Color.Gray)
@@ -129,7 +135,19 @@ fun SignInScreen(navController: NavController) {
         }
 
         FloatingActionButton(
-            onClick = { navController.navigate("homescreen") },
+            onClick = {
+                viewModel.signIn(
+                    email = email.value,
+                    password = password
+                ) { success, message ->
+                    if (success) {
+                        Toast.makeText(context, "Sign-in successful!", Toast.LENGTH_SHORT).show()
+                        navController.navigate("homescreen") // Navigate to the home screen
+                    } else {
+                        Toast.makeText(context, "Error: $message", Toast.LENGTH_LONG).show()
+                    }
+                }
+            },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = Color.White,
             modifier = Modifier
