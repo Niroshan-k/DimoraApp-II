@@ -60,7 +60,7 @@ fun GetStartedScreen(navController: NavController) {
             }
 
             FloatingActionButton(
-                onClick = { navController.navigate("signup") },
+                onClick = { navController.navigate("signin") },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = Color.White,
                 modifier = Modifier
