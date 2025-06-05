@@ -198,7 +198,8 @@ fun SignUpScreen(navController: NavController) {
                     username = username.value,
                     contact = contact.value,
                     password = password, // Now accessible here
-                    confirmPassword = confirmpassword // Now accessible here
+                    confirmPassword = confirmpassword, // Now accessible here
+                    user_role = "buyer" // Default user role
                 ) { success, message ->
                     if (success) {
                         Toast.makeText(context, "Sign-up successful!", Toast.LENGTH_SHORT).show()

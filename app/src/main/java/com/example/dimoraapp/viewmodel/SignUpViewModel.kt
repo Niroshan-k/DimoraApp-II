@@ -21,16 +21,26 @@ class SignUpViewModel : ViewModel() {
         contact: String, // Jetstream doesn't use this, but kept in case you store it later
         password: String,
         confirmPassword: String,
+        user_role: String = "buyer", // Default to "buyer" as per your requirement
         onResult: (Boolean, String) -> Unit
     ) {
         val url = "http://10.0.2.2:8000/api/register" // Jetstream's default register endpoint
-
+        Log.d("SignUpViewModel", "signUp function called")
         // JSON body matching Jetstream expectations
-        val json = JSONObject().apply {
-            put("name", username) // Jetstream uses "name"
-            put("email", email)
-            put("password", password)
-            put("password_confirmation", confirmPassword)
+        val json: JSONObject
+        try {
+            json = JSONObject().apply {
+                put("name", username)
+                put("email", email)
+                put("contact_number", contact)
+                put("password", password)
+                put("password_confirmation", confirmPassword)
+                put("user_role", "buyer")
+            }
+            //Log.d("SignUpViewModel", "Request JSON: ${json.toString()}")
+        } catch (e: Exception) {
+            Log.e("SignUpViewModel", "Error creating JSON", e)
+            return // Exit the function if JSON creation fails
         }
 
         val mediaType = "application/json; charset=utf-8".toMediaTypeOrNull()
@@ -44,6 +54,7 @@ class SignUpViewModel : ViewModel() {
             .build()
 
         viewModelScope.launch(Dispatchers.IO) {
+            Log.d("SignUpViewModel", "Request JSON: $json")
             client.newCall(request).enqueue(object : Callback {
                 override fun onFailure(call: Call, e: IOException) {
                     Log.e("SignUpViewModel", "Network request failed", e)

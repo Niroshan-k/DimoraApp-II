@@ -5,36 +5,11 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -42,19 +17,52 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dimoraapp.R
 import com.example.dimoraapp.navigation.BottomNavBar
+import com.example.dimoraapp.viewmodel.ProfileViewModel
+import com.example.dimoraapp.data.model.ProfileState
+import com.example.dimoraapp.data.repositor.AuthRepository
+import com.example.dimoraapp.utils.SessionManager
+import com.example.dimoraapp.data.api.RetrofitClient
+import com.example.dimoraapp.viewmodel.ProfileViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(navController: NavController){
+fun ProfileScreen(navController: NavController) {
+
+    // Retrieve the context
+    val context = LocalContext.current
+
+    // Initialize the SessionManager
+    val sessionManager = SessionManager(context)
+
+    // Initialize the repository
+    val repository = AuthRepository(
+        api = RetrofitClient.api,
+        sessionManager = sessionManager
+    )
+
+    // Use the ProfileViewModelFactory to create the ViewModel
+    val viewModel: ProfileViewModel = viewModel(
+        factory = ProfileViewModelFactory(repository)
+    )
+
+    // Observe the profile state and render UI
+    val profileState by viewModel.profileState.collectAsState()
+
+    // Fetch the profile when the screen is loaded
+    LaunchedEffect(Unit) {
+        viewModel.fetchProfile()
+    }
+
+    // Drawer State
     var isDrawerOpen by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -63,25 +71,46 @@ fun ProfileScreen(navController: NavController){
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Scaffold(
-                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                    topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
-                    bottomBar = { BottomNavBar(navController = navController) },
-                    content = { paddingValues ->
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .padding(paddingValues),
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            item { content(navController) }
-                        }
-                    }
+            if (profileState.isLoading) {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            } else if (profileState.error != null) {
+                Text(
+                    text = profileState.error ?: "Unknown Error",
+                    color = Color.Red,
+                    modifier = Modifier.align(Alignment.Center)
                 )
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    Scaffold(
+                        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                        topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
+                        bottomBar = { BottomNavBar(navController = navController) },
+                        content = { paddingValues ->
+                            LazyColumn(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .fillMaxWidth()
+                                    .padding(paddingValues),
+                                verticalArrangement = Arrangement.spacedBy(16.dp)
+                            ) {
+                                item {
+                                    ProfileContent(
+                                        navController = navController,
+                                        profileState = profileState,
+                                        onLogOut = {
+                                            sessionManager.clearSession() // Clear the session
+                                            navController.navigate("signin") { // Navigate to the sign-in screen
+                                                popUpTo("profilescreen") { inclusive = true } // Clear backstack
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                }
             }
 
             AnimatedVisibility(
@@ -97,36 +126,46 @@ fun ProfileScreen(navController: NavController){
         }
     }
 }
-@Composable
-fun content(navController: NavController) {
 
+@Composable
+fun ProfileContent(navController: NavController, profileState: ProfileState, onLogOut: () -> Unit) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    if (isLandscape)
-    Row(
-        modifier = Modifier.padding(start = 100.dp),
-        horizontalArrangement = Arrangement.Center
-    ) {
-        Profilepicture()
-        ProfileDetails(onClick = { navController.navigate("signin")})
-    }
-    else
-        Column {
-            Profilepicture()
-            ProfileDetails(onClick = { navController.navigate("signin")})
+
+    if (isLandscape) {
+        Row(
+            modifier = Modifier.padding(start = 100.dp),
+            horizontalArrangement = Arrangement.Center
+        ) {
+            ProfilePicture()
+            ProfileDetails(
+                email = profileState.email ?: "N/A",
+                username = profileState.username ?: "N/A",
+                contact = profileState.contact ?: "N/A",
+                onClick = onLogOut
+            )
         }
+    } else {
+        Column {
+            ProfilePicture()
+            ProfileDetails(
+                email = profileState.email ?: "N/A",
+                username = profileState.username ?: "N/A",
+                contact = profileState.contact ?: "N/A",
+                onClick = onLogOut
+            )
+        }
+    }
 }
 
 @Composable
-fun Profilepicture () {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    if (isLandscape)
+fun ProfilePicture() {
     Box(
         modifier = Modifier
+            .fillMaxWidth()
             .height(300.dp),
         contentAlignment = Alignment.Center
-    ){
+    ) {
         Image(
             modifier = Modifier.clip(CircleShape),
             painter = painterResource(R.drawable.profile),
@@ -134,48 +173,30 @@ fun Profilepicture () {
             alignment = Alignment.Center
         )
     }
-    else
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp),
-            contentAlignment = Alignment.Center
-        ){
-            Image(
-                modifier = Modifier.clip(CircleShape),
-                painter = painterResource(R.drawable.profile),
-                contentDescription = "profile",
-                alignment = Alignment.Center
-            )
-        }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileDetails(onClick: () -> Unit) {
-    val email = remember { mutableStateOf("example@gmail.com") }
-    val username = remember { mutableStateOf("user123") }
-    val contact = remember { mutableStateOf("") }
+fun ProfileDetails(email: String, username: String, contact: String, onClick: () -> Unit) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val padding = if (isLandscape) 64.dp else 16.dp
     val width = if (isLandscape) 600.dp else 500.dp
+
     Column(
         modifier = Modifier
             .padding(top = 24.dp, start = padding, end = padding)
     ) {
-        // Define a list of pairs (label, state)
         val formFields = listOf(
             "Email" to email,
             "Username" to username,
             "Contact" to contact,
         )
 
-        // Loop through the list and create a TextField for each pair
-        formFields.forEach { (label, state) ->
+        formFields.forEach { (label, value) ->
             TextField(
-                value = state.value,
-                onValueChange = { state.value = it },
+                value = value,
+                onValueChange = {},
                 label = { Text(label) },
                 modifier = Modifier
                     .width(width)
@@ -191,37 +212,6 @@ fun ProfileDetails(onClick: () -> Unit) {
                 )
             )
         }
-
-        var password by rememberSaveable { mutableStateOf("12345678") }
-        var visiblity by remember { mutableStateOf(false) }
-        var icon = if (visiblity) painterResource(R.drawable.baseline_visibility_24)
-        else painterResource(R.drawable.baseline_visibility_off_24)
-
-        TextField(
-            password, onValueChange = { password = it},
-            placeholder = { Text("Password") },
-            label = { Text("Password") },
-            trailingIcon = {
-                IconButton(onClick = { visiblity = !visiblity }) {
-                    Icon(painter = icon
-                    , contentDescription = "visible")
-                }
-            },
-            visualTransformation = if (visiblity) VisualTransformation.None
-            else PasswordVisualTransformation(),
-            modifier = Modifier
-                .width(width)
-                .height(70.dp)
-                .padding(start = padding, end = padding, bottom = 16.dp)
-                .shadow(4.dp, shape = MaterialTheme.shapes.medium),
-            shape = MaterialTheme.shapes.medium,
-            colors = TextFieldDefaults.textFieldColors(
-                focusedIndicatorColor = Color.Transparent,
-                unfocusedIndicatorColor = Color.Transparent,
-                containerColor = MaterialTheme.colorScheme.tertiary,
-                focusedLabelColor = MaterialTheme.colorScheme.surface
-            )
-        )
 
         Spacer(modifier = Modifier.height(16.dp))
         Row {
@@ -247,7 +237,7 @@ fun ProfileDetails(onClick: () -> Unit) {
             Box(
                 modifier = Modifier.width(250.dp),
                 contentAlignment = Alignment.CenterEnd
-            ){
+            ) {
                 Button(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -264,7 +254,6 @@ fun ProfileDetails(onClick: () -> Unit) {
                     Text(text = "Log Out", fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
-
         }
         Spacer(modifier = Modifier.height(32.dp))
     }

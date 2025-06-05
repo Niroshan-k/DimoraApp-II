@@ -1,6 +1,8 @@
 package com.example.dimoraapp.screens
 
+import android.app.Activity
 import android.content.res.Configuration
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
@@ -10,6 +12,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -22,58 +25,95 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dimoraapp.ui.theme.DMserif
 import com.example.dimoraapp.R
 import com.example.dimoraapp.model.Picture
 import com.example.dimoraapp.data.Datasource
+import com.example.dimoraapp.data.api.RetrofitClient
+import com.example.dimoraapp.data.repositor.AdvertisementRepository
+import com.example.dimoraapp.model.Advertisement
 import com.example.dimoraapp.navigation.BottomNavBar
+import com.example.dimoraapp.utils.SessionManager
+import com.example.dimoraapp.viewmodel.AdvertisementViewModel
+import com.example.dimoraapp.viewmodel.AdvertisementViewModelFactory
+import androidx.compose.foundation.lazy.items
+
 
 @OptIn(ExperimentalMaterial3Api::class)
+
 @Composable
 fun HomeScreen(navController: NavController) {
+    val context = LocalContext.current
+
+    val sessionManager = remember { SessionManager(context) }
+    val repository = remember { AdvertisementRepository(RetrofitClient.api, sessionManager) }
+    val viewModel: AdvertisementViewModel = viewModel(
+        factory = AdvertisementViewModelFactory(repository)
+    )
+
+    val ads by viewModel.ads
+    val error by viewModel.error
+
+    // Fetch ads when screen loads
+    LaunchedEffect(Unit) {
+        viewModel.fetchAdvertisements()
+    }
+
+    BackHandler(enabled = true) {
+        (context as? Activity)?.finish()
+    }
 
     var isDrawerOpen by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val scrollState = rememberLazyListState()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                Scaffold(
-                    modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
-                    topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
-                    bottomBar = { BottomNavBar(navController = navController) },
-                    content = { paddingValues ->
-                        LazyColumn(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth()
-                                .padding(paddingValues), // Add padding from Scaffold
-                            verticalArrangement = Arrangement.spacedBy(16.dp)
-                        ) {
-                            item { Heading("House") }
-                            item { PicturesApp(navController) }
-                            item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
-                            item { Heading("Villa") }
-                            item { PicturesApp(navController) }
-                            item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
-                            item { Heading("Guest House") }
-                            item { PicturesApp(navController) }
-                            item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+            Scaffold(
+                modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
+                topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
+                bottomBar = { BottomNavBar(navController = navController) },
+                content = { paddingValues ->
+                    LazyColumn(
+                        state = scrollState,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(paddingValues),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        item { Heading("Latest Houses") }
+                        item { PicturesApp(navController) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item { Heading("Luxury Houses") }
+
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item { Heading("Modern Houses") }
+
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item { Heading("Traditional Houses") }
+
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item {
+                            if (error != null) {
+                                Text(text = error!!, color = Color.Red)
+                            } else {
+                                AdvertisementListScreen(advertisements = ads)
+                            }
                         }
                     }
-                )
-            }
+                }
+            )
 
             AnimatedVisibility(
                 visible = isDrawerOpen,
@@ -315,5 +355,38 @@ fun SideNavBar(onClose: () -> Unit, onAboutUsClick: () -> Unit) {
                 Text(text = "Settings", color = MaterialTheme.colorScheme.surface, fontSize = 18.sp)
             }
         }
+    }
+}
+
+
+
+@Composable
+fun AdvertisementListScreen(advertisements: List<Advertisement>) {
+    LazyColumn(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        item {
+            Text(
+                text = "Advertisements",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.padding(16.dp)
+            )
+        }
+        items(advertisements) { ad ->
+            AdvertisementItem(advertisement = ad)
+        }
+    }
+}
+
+@Composable
+fun AdvertisementItem(advertisement: Advertisement) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+    ) {
+        Text(text = advertisement.title, style = MaterialTheme.typography.titleLarge)
+        Text(text = advertisement.property_details.location)
+        Text(text = "Price: ${advertisement.property_details.price}")
     }
 }

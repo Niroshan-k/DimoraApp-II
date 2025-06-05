@@ -31,6 +31,7 @@ import androidx.navigation.NavController
 import com.example.dimoraapp.viewmodel.SignInViewModel
 import com.example.dimoraapp.R
 import com.example.dimoraapp.ui.theme.DMserif
+import com.example.dimoraapp.utils.SessionManager
 import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -44,11 +45,21 @@ fun SignInScreen(navController: NavController) {
     var visibility by remember { mutableStateOf(false) }
     val viewModel: SignInViewModel = viewModel()
     val context = LocalContext.current
+    val sessionManager = remember { SessionManager(context) } // Initialize SessionManager
 
     // Error states
     var emailError by remember { mutableStateOf<String?>(null) }
     var passwordError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) } // For backend general errors
+
+    // Check if session is valid
+//    if (sessionManager.isSessionValid()) {
+//        // If session is valid, navigate directly to the home screen
+//        navController.navigate("homescreen") {
+//            popUpTo("signin") { inclusive = true } // Remove SignIn from the back stack
+//            launchSingleTop = true
+//        }
+//    }
 
     Box(
         modifier = Modifier
@@ -199,13 +210,16 @@ fun SignInScreen(navController: NavController) {
                     viewModel.signIn(
                         email = email.value,
                         password = password
-                    ) { success, message ->
+                    ) { success, token ->
                         if (success) {
+                            sessionManager.saveSession(email.value, token) // Save session
                             Toast.makeText(context, "Sign-in successful!", Toast.LENGTH_SHORT).show()
-                            navController.navigate("homescreen") // Navigate to the home screen
+                            navController.navigate("homescreen") {
+                                popUpTo("signin") { inclusive = true } // Remove SignIn from the back stack
+                            }
                         } else {
                             // Parse backend error and display it
-                            val errorMessage = parseBackendError(message)
+                            val errorMessage = parseBackendError(token)
                             generalError = errorMessage
                         }
                     }
