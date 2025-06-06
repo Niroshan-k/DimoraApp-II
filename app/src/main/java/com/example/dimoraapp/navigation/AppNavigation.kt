@@ -41,7 +41,12 @@ fun AppNavigation(context: Context) {
         composable("signup") { SignUpScreen(navController) }
         composable("signin") { SignInScreen(navController) }
         composable("homescreen") { HomeScreen(navController) }
-        composable("infoscreen"){ InfoScreen(navController) }
+        composable("infoscreen/{adId}") { backStackEntry ->
+            val adId = backStackEntry.arguments?.getString("adId")?.toIntOrNull()
+            if (adId != null) {
+                InfoScreen(navController, adId)
+            }
+        }
         composable("profilescreen"){ ProfileScreen(navController) }
         composable("searchscreen"){ SearchScreen(navController) }
         composable("notificationscreen"){ NotificationScreen(navController) }

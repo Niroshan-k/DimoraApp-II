@@ -61,6 +61,17 @@ fun HomeScreen(navController: NavController) {
     val ads by viewModel.ads
     val error by viewModel.error
 
+    LaunchedEffect(ads) {
+        println("LaunchedEffect triggered! ads.size = ${ads.size}")
+        ads.forEach {
+            println("Ad: ${it.title}, house: ${it.property_details?.house_details}")
+        }
+    }
+
+    val luxuryAds = ads.filter { it.property_details?.house_details?.house_type == "luxury" }.take(4)
+    val modernAds = ads.filter { it.property_details?.house_details?.house_type == "modern" }.take(4)
+    val traditionalAds = ads.filter { it.property_details?.house_details?.house_type == "traditional" }.take(4)
+
     // Fetch ads when screen loads
     LaunchedEffect(Unit) {
         viewModel.fetchAdvertisements()
@@ -121,12 +132,39 @@ fun HomeScreen(navController: NavController) {
                             }
                         }
                         item {
-                            AdvertisementsRow(ads = ads)
+                            AdvertisementsRow(ads = ads, navController = navController)
                         }
                         item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
                         item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
                         item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
                         item { Grid2() }
+                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Heading("Luxury") }
+                        item {
+                            if (luxuryAds.isNotEmpty()) {
+                                AdvertisementsRow(ads = luxuryAds, navController = navController)
+                            }
+                        }
+                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Heading("Modern") }
+                        item {
+                            if (modernAds.isNotEmpty()) {
+                                AdvertisementsRow(ads = modernAds, navController = navController)
+                            }
+                        }
+                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Heading("Traditional") }
+                        item {
+                            if (traditionalAds.isNotEmpty()) {
+                                AdvertisementsRow(ads = traditionalAds, navController = navController)
+                            }
+                        }
+                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
                     }
                 }
             )
@@ -345,7 +383,7 @@ fun MoreButton(onClick: () -> Unit) {
 }
 
 @Composable
-fun AdvertisementsRow(ads: List<Advertisement>) {
+fun AdvertisementsRow(ads: List<Advertisement>, navController: NavController) {
     val context = LocalContext.current
     LazyRow(
         modifier = Modifier
@@ -361,7 +399,7 @@ fun AdvertisementsRow(ads: List<Advertisement>) {
                     putExtra(Intent.EXTRA_TEXT, url)
                 }
                 context.startActivity(Intent.createChooser(shareIntent, "Share Advertisement"))
-            })
+            },onCardClick = { navController.navigate("infoscreen/${ad.id}") })
         }
     }
 }
@@ -369,19 +407,23 @@ fun AdvertisementsRow(ads: List<Advertisement>) {
 @Composable
 fun AdvertisementCard(
     advertisement: Advertisement,
-    onShareClick: () -> Unit
+    onShareClick: () -> Unit,
+    onCardClick: () -> Unit
 ) {
     val imageUrl = advertisement.images.firstOrNull()?.data
+    val house = advertisement.property_details?.house_details
+
     Card(
         modifier = Modifier
             .width(300.dp)
-            .height(300.dp),
-        shape = RoundedCornerShape(12.dp),
-        elevation = CardDefaults.cardElevation(4.dp)
+            .height(320.dp)
+            .clickable { onCardClick() },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(8.dp)
+
     ) {
-        Box(
-            modifier = Modifier.fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            // Image with gradient overlay
             if (!imageUrl.isNullOrEmpty()) {
                 AsyncImage(
                     model = imageUrl,
@@ -389,70 +431,132 @@ fun AdvertisementCard(
                     contentScale = ContentScale.Crop,
                     modifier = Modifier.fillMaxSize()
                 )
+                Box(
+                    modifier = Modifier
+                        .matchParentSize()
+                        .background(
+                            Brush.verticalGradient(
+                                0.3f to Color.Transparent,
+                                1.0f to Color.Black.copy(alpha = 0.7f)
+                            )
+                        )
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Gray)
+                )
             }
+
+            // Status Chip (top right)
+            val isActive = advertisement.status?.lowercase() == "active"
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(10.dp)
+            ) {
+                Surface(
+                    color = if (isActive) Color(0xFF43EA73) else Color(0xFFFF5252),
+                    shape = RoundedCornerShape(30.dp),
+                    shadowElevation = 4.dp
+                ) {
+                    Text(
+                        text = if (isActive) "Active" else "Sold",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 13.sp,
+                        modifier = Modifier.padding(horizontal = 13.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            // Card content
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
-                    .background(Color.Black.copy(alpha = 0.5f))
                     .fillMaxWidth()
-                    .padding(8.dp)
+                    .padding(14.dp)
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = advertisement.title,
-                        fontSize = 25.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = DMserif,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
                 Text(
-                    text = advertisement.property_details.location,
-                    fontSize = 15.sp,
+                    text = advertisement.title ?: "No title",
+                    fontSize = 22.sp,
                     color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = DMserif,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
                 Text(
-                    text = "Price: ${advertisement.property_details.price}",
-                    fontSize = 20.sp,
-                    color = Color.White,
-                    fontWeight = FontWeight.Bold
+                    text = advertisement.property_details?.location ?: "",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.85f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                Row{
-                    IconButton(
-                        onClick = onShareClick,
-                        modifier = Modifier.size(30.dp)
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // House type or fallback
+                Text(
+                    text = if (house != null) "Type: ${house.house_type?.replaceFirstChar { it.uppercase() }}" else "No house details",
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+
+                Spacer(modifier = Modifier.height(10.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Price Chip
+                    Surface(
+                        color = Color(0xFF1DE9B6),
+                        shape = RoundedCornerShape(12.dp),
+                        shadowElevation = 2.dp
                     ) {
-                        Icon(
-                            imageVector = Icons.Filled.FavoriteBorder,
-                            contentDescription = "Share",
-                            tint = Color.White
+                        Text(
+                            text = "Rs. ${advertisement.property_details?.price}",
+                            color = Color.Black,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 15.sp,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                         )
                     }
-                    Spacer(modifier = Modifier.width(200.dp))
-                    IconButton(
-                        onClick = onShareClick,
-                        modifier = Modifier.size(30.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Share,
-                            contentDescription = "Share",
-                            tint = Color.White
-                        )
+
+                    Row {
+                        IconButton(
+                            onClick = {/* TODO: Implement favorite action */ },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.FavoriteBorder,
+                                contentDescription = "Favorite",
+                                tint = Color.White
+                            )
+                        }
+                        IconButton(
+                            onClick = onShareClick,
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Filled.Share,
+                                contentDescription = "Share",
+                                tint = Color.White
+                            )
+                        }
                     }
                 }
             }
         }
     }
 }
-
 
 @Composable
 fun SideNavBar(onClose: () -> Unit, onAboutUsClick: () -> Unit) {
