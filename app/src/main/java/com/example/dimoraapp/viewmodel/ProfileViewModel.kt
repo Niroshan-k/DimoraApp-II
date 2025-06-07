@@ -1,25 +1,45 @@
 package com.example.dimoraapp.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.dimoraapp.data.model.ProfileState
 import com.example.dimoraapp.data.repositor.AuthRepository
+import com.example.dimoraapp.utils.DataStoreManager
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-class ProfileViewModel(private val repository: AuthRepository) : ViewModel() {
+class ProfileViewModel(
+    application: Application,
+    private val repository: AuthRepository
+) : AndroidViewModel(application) {
 
-    // StateFlow for the profile state
+    private val dataStoreManager = DataStoreManager(application)
+
+    // StateFlow for UI state (profile loaded from API)
     private val _profileState = MutableStateFlow(
         ProfileState(
             isLoading = true,
-            error = null // Initial error is null
+            error = null
         )
     )
     val profileState: StateFlow<ProfileState> = _profileState
 
-    // Fetch profile data from the repository
+    // StateFlow for locally saved user profile (offline)
+    val offlineProfile: StateFlow<ProfileState?> = dataStoreManager.userProfileFlow
+        .stateIn(viewModelScope, SharingStarted.Lazily, null)
+
+    // Save profile to DataStore
+    fun saveProfileOffline(profile: ProfileState) {
+        viewModelScope.launch {
+            dataStoreManager.saveUserProfile(profile)
+        }
+    }
+
+    // Fetch profile from server
     fun fetchProfile() {
         viewModelScope.launch {
             _profileState.value = _profileState.value.copy(isLoading = true)
@@ -27,13 +47,14 @@ class ProfileViewModel(private val repository: AuthRepository) : ViewModel() {
                 val response = repository.getProfile()
                 if (response.isSuccessful) {
                     response.body()?.let { profile ->
-                        _profileState.value = ProfileState(
+                        val state = ProfileState(
                             email = profile.email,
-                            username = profile.name, // Replace with actual property name
-                            contact = profile.contactNumber, // Replace with actual property name
+                            username = profile.name, // Update as needed
+                            contact = profile.contactNumber, // Update as needed
                             isLoading = false,
-                            error = null // No error if successful
+                            error = null
                         )
+                        _profileState.value = state
                     }
                 } else {
                     _profileState.value = ProfileState(

@@ -1,6 +1,7 @@
 package com.example.dimoraapp.screens
 
 import android.app.Activity
+import android.content.Context
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
@@ -46,6 +47,10 @@ import android.content.Intent
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.style.TextAlign
+import com.example.dimoraapp.model.ServerErrorMessage
+import com.google.gson.Gson
+import java.io.InputStreamReader
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,6 +93,8 @@ fun HomeScreen(
     var isDrawerOpen by remember { mutableStateOf(false) }
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     val scrollState = rememberLazyListState()
+    val profileImagePath = getSavedProfileImagePath(context)
+    val serverError = rememberServerErrorMessage()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -102,7 +109,8 @@ fun HomeScreen(
                     BottomNavBar(
                         navController = navController,
                         notificationCount = notificationCount,
-                        onNotificationsClicked = onNotificationsClicked
+                        onNotificationsClicked = onNotificationsClicked,
+                        profileImagePath = profileImagePath
                     )
                 },
                 content = { paddingValues ->
@@ -137,7 +145,9 @@ fun HomeScreen(
                         item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
                         item {
                             if (error != null) {
-                                Text(text = error!!, color = Color.Red, modifier = Modifier.padding(start = 16.dp))
+                                if (serverError != null) {
+                                    ErrorScreenWithImage(serverError)
+                                }
                             } else {
                                 Heading("Latest")
                             }
@@ -220,6 +230,37 @@ fun TopNavBar(onMenuClick: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) 
 }
 
 @Composable
+fun ErrorScreenWithImage(error: ServerErrorMessage) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(32.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // You can use painterResource or load from assets
+        Image(
+            painter = painterResource(id = R.drawable.server_error), // or use rememberAsyncImagePainter for assets
+            contentDescription = null,
+            modifier = Modifier.size(180.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = error.title,
+            fontWeight = FontWeight.Bold,
+            fontSize = 22.sp,
+            color = Color.Gray
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text(
+            text = error.message,
+            fontSize = 16.sp,
+            color = Color.Gray,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
 fun Heading(title: String) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -281,6 +322,29 @@ fun Grid2() {
             modifier = Modifier.weight(1f)
         )
     }
+}
+
+@Composable
+fun rememberServerErrorMessage(): ServerErrorMessage? {
+    val context = LocalContext.current
+    var errorMessage by remember { mutableStateOf<ServerErrorMessage?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            context.assets.open("server_error.json").use { input ->
+                val reader = InputStreamReader(input)
+                errorMessage = Gson().fromJson(reader, ServerErrorMessage::class.java)
+            }
+        } catch (e: Exception) {
+            // Fallback if file missing
+            errorMessage = ServerErrorMessage(
+                title = "Server Error",
+                message = "We are unable to connect to the server.",
+                imageAsset = "server_error.png"
+            )
+        }
+    }
+    return errorMessage
 }
 
 @Composable
@@ -570,10 +634,15 @@ fun AdvertisementCard(
 }
 
 @Composable
-fun SideNavBar(onClose: () -> Unit, onAboutUsClick: () -> Unit) {
+fun SideNavBar(
+    onClose: () -> Unit,
+    onAboutUsClick: () -> Unit
+) {
+    val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
     val padding = if (isLandscape) 64.dp else 16.dp
+
     Box(
         modifier = Modifier
             .fillMaxHeight()
@@ -635,6 +704,27 @@ fun SideNavBar(onClose: () -> Unit, onAboutUsClick: () -> Unit) {
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = "Settings", color = MaterialTheme.colorScheme.surface, fontSize = 18.sp)
             }
+            // Add the Send Invite button
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = { sendInvite(context) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp)
+            ) {
+                Text("Send Invite")
+            }
         }
     }
+}
+
+fun sendInvite(context: Context) {
+    val intent = Intent(Intent.ACTION_SEND).apply {
+        type = "text/plain"
+        putExtra(
+            Intent.EXTRA_TEXT,
+            "Hey! Join me on DimoraApp. Download it here: https://play.google.com/store/apps/details?id=${context.packageName}"
+        )
+    }
+    context.startActivity(Intent.createChooser(intent, "Share via"))
 }

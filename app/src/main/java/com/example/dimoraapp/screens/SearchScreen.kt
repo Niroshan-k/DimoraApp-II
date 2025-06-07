@@ -41,6 +41,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,7 +59,8 @@ fun SearchScreen (
     onNotificationsClicked: () -> Unit
 ) {
     Box(modifier = Modifier.fillMaxSize().background(color = MaterialTheme.colorScheme.background)) {
-
+        val context = LocalContext.current
+        val profileImagePath = getSavedProfileImagePath(context)
         // Content layout
         Column(
             modifier = Modifier.fillMaxSize()
@@ -85,7 +87,8 @@ fun SearchScreen (
             BottomNavBar(
                 navController = navController,
                 notificationCount = notificationCount,
-                onNotificationsClicked = onNotificationsClicked
+                onNotificationsClicked = onNotificationsClicked,
+                profileImagePath = profileImagePath
             )
         }
     }

@@ -9,8 +9,8 @@ val lightbackground = Color(0xFFFFFFFF)
 val lightdark = Color(0xFF000000)
 
 
-
-val darkbackground = Color(0xFF313131)
+//Color(0xFF313131)
+val darkbackground = Color(0xFF000000)
 val darkbrown = Color(0xFF745B4B)
 val darkgreen = Color(0xFFEBFFF0)
 val darklight = Color(0xFFFFFFFF)

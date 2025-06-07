@@ -1,8 +1,12 @@
 package com.example.dimoraapp.screens
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
 import android.content.res.Configuration
 import android.location.Geocoder
+import android.location.Location
+import android.net.Uri
 import android.util.Log
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.slideInHorizontally
@@ -28,10 +32,11 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.ContextCompat
+import androidx.core.content.PermissionChecker
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.dimoraapp.R
@@ -44,7 +49,22 @@ import com.example.dimoraapp.viewmodel.InfoViewModel
 import com.example.dimoraapp.viewmodel.InfoViewModelFactory
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dimoraapp.ui.theme.DMserif
+import com.google.android.gms.location.LocationServices
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import org.json.JSONObject
+import org.osmdroid.util.GeoPoint
+import org.osmdroid.views.MapView
+import org.osmdroid.views.overlay.Marker
+import org.osmdroid.views.overlay.Polyline
+import androidx.compose.ui.viewinterop.AndroidView
+import com.google.accompanist.permissions.ExperimentalPermissionsApi
+import com.google.accompanist.permissions.isGranted
+import com.google.accompanist.permissions.rememberPermissionState
 
+@OptIn(ExperimentalPermissionsApi::class)
 @Composable
 fun InfoScreen(
     navController: NavController,
@@ -65,10 +85,28 @@ fun InfoScreen(
     // Fetch ad on first load
     LaunchedEffect(adId) { viewModel.fetchAdvertisementById(adId) }
 
-    // Debug: log ad
-    LaunchedEffect(ad) { Log.d("InfoScreen", "Loaded ad: $ad") }
+    // Permission handling
+    val permissionState = rememberPermissionState(Manifest.permission.ACCESS_FINE_LOCATION)
+    LaunchedEffect(Unit) {
+        if (!permissionState.status.isGranted) {
+            permissionState.launchPermissionRequest()
+        }
+    }
 
+    // Early return if no permission
+    if (!permissionState.status.isGranted) {
+        Box(
+            Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Location permission not granted")
+        }
+        return
+    }
+
+    // Now it's safe to use location in your UI
     var isDrawerOpen by remember { mutableStateOf(false) }
+    val profileImagePath = getSavedProfileImagePath(context)
 
     Box(
         modifier = Modifier
@@ -117,6 +155,20 @@ fun InfoScreen(
                                 modifier = Modifier.padding(vertical = 20.dp, horizontal = 16.dp)
                             )
                         }
+                        // Show Route Map if property location available
+                        item {
+                            val address = ad!!.property?.location
+                            if (!address.isNullOrBlank()) {
+                                Text(
+                                    text = "Show Route to Property",
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.primary,
+                                    fontSize = 20.sp,
+                                    modifier = Modifier.padding(start = 16.dp, top = 16.dp, bottom = 8.dp)
+                                )
+                                RouteMapScreen(propertyAddress = address)
+                            }
+                        }
                         item { SendMessageForm() }
                     }
                 }
@@ -124,7 +176,8 @@ fun InfoScreen(
             BottomNavBar(
                 navController = navController,
                 notificationCount = notificationCount,
-                onNotificationsClicked = onNotificationsClicked
+                onNotificationsClicked = onNotificationsClicked,
+                profileImagePath = profileImagePath
             )
         }
 
@@ -325,6 +378,7 @@ fun HouseDetailsSection(ad: AdvertisementApi) {
             color = MaterialTheme.colorScheme.surface,
             fontSize = 15.sp
         )
+        // Property location map
         property?.location?.let { locationString ->
             if (locationString.isNotBlank()) {
                 AddressToMapView(address = locationString)
@@ -333,16 +387,6 @@ fun HouseDetailsSection(ad: AdvertisementApi) {
     }
 }
 
-fun geocodeAddress(context: Context, address: String): Pair<Double, Double>? {
-    return try {
-        val geocoder = Geocoder(context)
-        val results = geocoder.getFromLocationName(address, 1)
-        if (results.isNullOrEmpty()) null
-        else Pair(results[0].latitude, results[0].longitude)
-    } catch (e: Exception) {
-        null
-    }
-}
 @Composable
 fun AddressToMapView(address: String) {
     val context = LocalContext.current
@@ -352,24 +396,57 @@ fun AddressToMapView(address: String) {
         latLon = geocodeAddress(context, address)
     }
 
-    latLon?.let { (lat, lon) ->
-        OpenStreetMapView(
-            lat = lat,
-            lon = lon,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(300.dp) // Make the map bigger
-                .padding(16.dp)
-        )
-    } ?: Box(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .height(300.dp)
-            .padding(16.dp),
+            .padding(16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.LightGray),
         contentAlignment = Alignment.Center
     ) {
-        Text("Loading map...")
+        latLon?.let { (lat, lon) ->
+            OpenStreetMapView(
+                lat = lat,
+                lon = lon,
+                modifier = Modifier.matchParentSize()
+            )
+        } ?: Text("Loading map...")
     }
+}
+
+@Composable
+fun OpenStreetMapView(lat: Double, lon: Double, modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { ctx ->
+            MapView(ctx).apply {
+                setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+                controller.setZoom(15.0)
+                controller.setCenter(GeoPoint(lat, lon))
+                setMultiTouchControls(true)
+
+                // Add marker at property location
+                val marker = Marker(this).apply {
+                    position = GeoPoint(lat, lon)
+                    setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                    title = "Property"
+                }
+                overlays.add(marker)
+            }
+        },
+        update = { mapView ->
+            mapView.overlays.clear()
+            val marker = Marker(mapView).apply {
+                position = GeoPoint(lat, lon)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                title = "Property"
+            }
+            mapView.overlays.add(marker)
+            mapView.controller.setCenter(GeoPoint(lat, lon))
+            mapView.invalidate()
+        }
+    )
 }
 
 @Composable
@@ -412,6 +489,17 @@ fun SendMessageForm() {
     var message by remember { mutableStateOf("") }
 
     val padding = if (isLandscape) 64.dp else 24.dp
+    val context = LocalContext.current
+
+    fun openSmsApp() {
+        val smsNumber = "+94788672025"
+        val smsBody = "Email: $email\nContact: $contact\nMessage: $message"
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            data = Uri.parse("sms:$smsNumber")
+            putExtra("sms_body", smsBody)
+        }
+        context.startActivity(intent)
+    }
 
     Column(
         modifier = Modifier
@@ -434,7 +522,7 @@ fun SendMessageForm() {
             label = { Text("Email") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(80.dp)
                 .padding(bottom = 12.dp),
             shape = MaterialTheme.shapes.medium,
             singleLine = true
@@ -445,7 +533,7 @@ fun SendMessageForm() {
             label = { Text("Contact") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp)
+                .height(80.dp)
                 .padding(bottom = 12.dp),
             shape = MaterialTheme.shapes.medium,
             singleLine = true
@@ -456,13 +544,13 @@ fun SendMessageForm() {
             label = { Text("Message") },
             modifier = Modifier
                 .fillMaxWidth()
-                .height(100.dp)
+                .height(110.dp)
                 .padding(bottom = 16.dp),
             shape = MaterialTheme.shapes.medium,
             maxLines = 5
         )
         Button(
-            onClick = { /* TODO: Send message logic here */ },
+            onClick = { openSmsApp() },
             modifier = Modifier
                 .fillMaxWidth()
                 .height(50.dp),
@@ -473,6 +561,174 @@ fun SendMessageForm() {
             shape = MaterialTheme.shapes.medium
         ) {
             Text("Send Message", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+// --- MAP/ROUTE LOGIC ---
+
+@Composable
+fun rememberCurrentLocation(context: Context): Location? {
+    var location by remember { mutableStateOf<Location?>(null) }
+
+    LaunchedEffect(true) {
+        if (ContextCompat.checkSelfPermission(
+                context,
+                Manifest.permission.ACCESS_FINE_LOCATION
+            ) == PermissionChecker.PERMISSION_GRANTED
+        ) {
+            val fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(context)
+            fusedLocationProviderClient.lastLocation.addOnSuccessListener { loc ->
+                location = loc
+            }
+        }
+    }
+    return location
+}
+
+fun geocodeAddress(context: Context, address: String): Pair<Double, Double>? {
+    return try {
+        val geocoder = Geocoder(context)
+        val results = geocoder.getFromLocationName(address, 1)
+        if (results.isNullOrEmpty()) {
+            Log.e("geocodeAddress", "No results for address: $address, using fallback")
+            // Fallback: return fixed coordinates for testing
+            Pair(7.287467, 80.640764) // Googleplex
+        } else {
+            val lat = results[0].latitude
+            val lon = results[0].longitude
+            Pair(lat, lon)
+        }
+    } catch (e: Exception) {
+        Log.e("geocodeAddress", "Exception: ${e.localizedMessage}, using fallback")
+        // Fallback: return fixed coordinates for testing
+        Pair(37.4219983, -122.084)
+    }
+}
+suspend fun getRoutePoints(
+    startLat: Double, startLon: Double,
+    endLat: Double, endLon: Double
+): List<GeoPoint> {
+    return withContext(Dispatchers.IO) {
+        val url = "https://router.project-osrm.org/route/v1/driving/$startLon,$startLat;$endLon,$endLat?overview=full&geometries=geojson"
+        val client = OkHttpClient()
+        val request = Request.Builder().url(url).build()
+        val response = client.newCall(request).execute()
+        val json = JSONObject(response.body?.string() ?: "")
+        val points = mutableListOf<GeoPoint>()
+        val coords = json
+            .getJSONArray("routes")
+            .getJSONObject(0)
+            .getJSONObject("geometry")
+            .getJSONArray("coordinates")
+        for (i in 0 until coords.length()) {
+            val lng = coords.getJSONArray(i).getDouble(0)
+            val lat = coords.getJSONArray(i).getDouble(1)
+            points.add(GeoPoint(lat, lng))
+        }
+        points
+    }
+}
+
+@Composable
+fun RouteMapScreen(
+    propertyAddress: String,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val userLocation = rememberCurrentLocation(context)
+    var destLatLon by remember { mutableStateOf<Pair<Double, Double>?>(null) }
+    var routePoints by remember { mutableStateOf<List<GeoPoint>>(emptyList()) }
+    var loading by remember { mutableStateOf(true) }
+    var errorMsg by remember { mutableStateOf<String?>(null) }
+
+    // Geocode the property address
+    LaunchedEffect(propertyAddress) {
+        loading = true
+        errorMsg = null
+        destLatLon = geocodeAddress(context, propertyAddress)
+        loading = false
+        if (destLatLon == null) errorMsg = "Could not geocode property address"
+    }
+
+    // Get route points when both locations are ready
+    LaunchedEffect(userLocation, destLatLon) {
+        if (userLocation != null && destLatLon != null) {
+            loading = true
+            errorMsg = null
+            try {
+                routePoints = getRoutePoints(
+                    userLocation.latitude, userLocation.longitude,
+                    destLatLon!!.first, destLatLon!!.second
+                )
+            } catch (e: Exception) {
+                errorMsg = "Error getting route: ${e.localizedMessage}"
+            }
+            loading = false
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(360.dp)
+            .padding(16.dp) // Add padding
+            .clip(RoundedCornerShape(16.dp)) // Rounded corners
+            .background(Color.LightGray), // Background color
+        contentAlignment = Alignment.Center
+    ) {
+        when {
+            loading -> CircularProgressIndicator()
+            errorMsg != null -> Text(errorMsg ?: "", color = Color.Red)
+            userLocation == null -> Text("Getting current location…")
+            destLatLon == null -> Text("Getting property location…")
+            else -> {
+                val start = GeoPoint(userLocation.latitude, userLocation.longitude)
+                val end = GeoPoint(destLatLon!!.first, destLatLon!!.second)
+                AndroidView(
+                    modifier = Modifier.matchParentSize(),
+                    factory = { ctx ->
+                        MapView(ctx).apply {
+                            setTileSource(org.osmdroid.tileprovider.tilesource.TileSourceFactory.MAPNIK)
+                            controller.setZoom(14.5)
+                            controller.setCenter(start)
+                            setMultiTouchControls(true)
+                        }
+                    },
+                    update = { mapView ->
+                        mapView.overlays.clear()
+
+                        // Draw the route as a polyline
+                        if (routePoints.isNotEmpty()) {
+                            val polyline = Polyline(mapView).apply {
+                                setPoints(routePoints)
+                                outlinePaint.color = android.graphics.Color.BLUE
+                                outlinePaint.strokeWidth = 10f
+                            }
+                            mapView.overlays.add(polyline)
+                        }
+
+                        // Add start marker
+                        Marker(mapView).apply {
+                            position = start
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            title = "You"
+                            mapView.overlays.add(this)
+                        }
+                        // Add end marker
+                        Marker(mapView).apply {
+                            position = end
+                            setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                            title = "Property"
+                            mapView.overlays.add(this)
+                        }
+
+                        // Center map
+                        mapView.controller.setCenter(start)
+                        mapView.invalidate()
+                    }
+                )
+            }
         }
     }
 }

@@ -1,6 +1,8 @@
 package com.example.dimoraapp.data.repositor
 
 import com.example.dimoraapp.data.api.JetstreamApi
+import com.example.dimoraapp.entities.AdvertisementEntity
+import com.example.dimoraapp.mappers.AppDatabase
 import com.example.dimoraapp.model.AdvertisementApiResponse
 import com.example.dimoraapp.model.AdvertisementListResponse
 import com.example.dimoraapp.utils.SessionManager
@@ -20,3 +22,6 @@ class AdvertisementRepository(
         return api.getAdvertisementById(token, id)
     }
 }
+
+
+

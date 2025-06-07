@@ -4,7 +4,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 
     // Add Kotlin Kapt plugin
-    //id("kotlin-kapt")
+    id("kotlin-kapt")
     //id("dagger.hilt.android.plugin")
 }
 
@@ -85,9 +85,20 @@ dependencies {
     // Lifecycle
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.6.2")
     implementation("androidx.lifecycle:lifecycle-livedata-ktx:2.6.2")
-    implementation("androidx.activity:activity-compose:1.7.0")
-
     implementation("io.coil-kt:coil-compose:2.6.0")
 
     implementation("org.osmdroid:osmdroid-android:6.1.16")
+
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+    implementation("com.google.code.gson:gson:2.10.1")// For JSON serialization
+    // For ActivityResult APIs
+    implementation("androidx.activity:activity-compose:1.8.2")
+
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+
+    implementation("androidx.compose.material:material-icons-extended:<latest-version>")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
+    implementation("com.google.accompanist:accompanist-permissions:0.37.3")
 }

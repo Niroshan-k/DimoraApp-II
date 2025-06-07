@@ -34,14 +34,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
 import com.example.dimoraapp.R
 import com.example.dimoraapp.viewmodel.NotificationViewModel
+import java.io.File
 
 @Composable
 fun BottomNavBar(
     navController: NavController,
     notificationCount: Int,
-    onNotificationsClicked: () -> Unit
+    onNotificationsClicked: () -> Unit,
+    profileImagePath: String?
 ){
     var selectedTab by remember { mutableStateOf("") }
 
@@ -113,6 +116,7 @@ fun BottomNavBar(
             },
             selected = false,
             onClick = {
+                navController.navigate("notificationscreen")
                 onNotificationsClicked()
                 selectedTab = "notification"
             }
@@ -123,16 +127,26 @@ fun BottomNavBar(
                 Box(
                     modifier = Modifier
                         .size(25.dp)
-                        .background(Color.LightGray, CircleShape), // Background circle
+                        .background(Color.LightGray, CircleShape),
                     contentAlignment = Alignment.Center
                 ) {
-                    Image(
-                        painter = painterResource(id = R.drawable.profile),
-                        contentDescription = "Profile",
-                        modifier = Modifier
-                            .size(25.dp)
-                            .clip(CircleShape) // Ensures the image is circular
-                    )
+                    if (profileImagePath != null && File(profileImagePath).exists()) {
+                        Image(
+                            painter = rememberAsyncImagePainter(profileImagePath),
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .size(25.dp)
+                                .clip(CircleShape)
+                        )
+                    } else {
+                        Image(
+                            painter = painterResource(id = R.drawable.profile),
+                            contentDescription = "Profile",
+                            modifier = Modifier
+                                .size(25.dp)
+                                .clip(CircleShape)
+                        )
+                    }
                 }
             },
             label = {
