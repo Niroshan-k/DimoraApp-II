@@ -1,129 +1,136 @@
 package com.example.dimoraapp.screens
 
-import android.content.res.Configuration
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardColors
-import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import com.example.dimoraapp.R
+import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavHostController
+import com.example.dimoraapp.data.api.RetrofitClient
+import com.example.dimoraapp.data.repositor.NotificationRepository
 import com.example.dimoraapp.navigation.BottomNavBar
+import com.example.dimoraapp.viewmodel.NotificationViewModel
+import com.example.dimoraapp.viewmodel.NotificationViewModelFactory
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotificationScreen(navController: NavController) {
-    Box(modifier = Modifier
-        .fillMaxSize()
-        .background(MaterialTheme.colorScheme.background)
-    ) {
+fun NotificationScreen(
+    token: String,
+    navController: NavHostController,
+    notificationViewModel: NotificationViewModel,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+) {
+    val repository = remember { NotificationRepository(RetrofitClient.api) }
+    val viewModel: NotificationViewModel = viewModel(
+        factory = NotificationViewModelFactory(repository, token) as androidx.lifecycle.ViewModelProvider.Factory
+    )
+    val notifications by viewModel.notifications.collectAsState()
+    val loading by viewModel.loading.collectAsState()
+    val error by viewModel.error.collectAsState()
+    LaunchedEffect(Unit) {
+        notificationViewModel.clearNotificationCount()
+    }
 
-        // Content layout
-        Column(
-            modifier = Modifier.fillMaxSize()
+    Scaffold(
+        topBar = {
+            TopNavBarInfo(
+                goToHomePage = { navController.navigate("homescreen") },
+                onMenuClick = { /* implement menu click if needed */ }
+            )
+        },
+        bottomBar = {
+            BottomNavBar(
+                navController = navController,
+                notificationCount = notificationCount,
+                onNotificationsClicked = onNotificationsClicked
+            )
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background),
+            contentAlignment = Alignment.TopCenter
         ) {
-            // LazyColumn for scrollable content
-            Spacer(modifier = Modifier.height(64.dp))
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f) // Take up remaining vertical space
-                    .fillMaxWidth(),
-            ) {
-                item { Notification (onClick = {navController.navigate("infoscreen")}) }
-                item { Notification (onClick = {navController.navigate("infoscreen")})}
-                item { Notification (onClick = {navController.navigate("infoscreen")})}
-                item { Notification (onClick = {navController.navigate("infoscreen")})}
-
-
+            when {
+                loading -> CircularProgressIndicator()
+                error != null -> Text(
+                    "Error: $error",
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(32.dp)
+                )
+                notifications.isEmpty() -> Text(
+                    "No notifications found or failed to load notifications.",
+                    color = MaterialTheme.colorScheme.onBackground,
+                    modifier = Modifier.padding(32.dp)
+                )
+                else -> LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    items(notifications) { notification ->
+                        NotificationItem(notification)
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
             }
-
-            // Bottom navigation bar
-            BottomNavBar(navController = navController)
         }
     }
 }
 
 @Composable
-fun Notification(onClick: () -> Unit) {
-
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val padding = if (isLandscape) 64.dp else 16.dp
-
+fun NotificationItem(notification: com.example.dimoraapp.model.Notification) {
     Card(
-        shape = RoundedCornerShape(8.dp),
         modifier = Modifier
-            .padding(start = padding,8.dp, end = padding, bottom = 8.dp)
             .fillMaxWidth()
-            .clickable{onClick()}
-            .shadow(8.dp, shape = RoundedCornerShape(8.dp)),
-        colors = CardColors(
-            containerColor = MaterialTheme.colorScheme.background,
-            contentColor = Color.Black,
-            disabledContentColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent
-        )
-    ){
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(8.dp)
+            .shadow(6.dp, shape = MaterialTheme.shapes.medium),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.tertiary,
+            contentColor = MaterialTheme.colorScheme.surface
+        ),
+        shape = MaterialTheme.shapes.medium,
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
         ) {
-            Image(
-                painter = painterResource(R.drawable.imageinfo1),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.width(50.dp).height(70.dp).clip(shape = RoundedCornerShape(8.dp))
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Text(
-                text = "New Propert Listed ✌️. Check it out!",
-                color = MaterialTheme.colorScheme.surface
-            )
-            Box(
-                Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.CenterEnd
-            ){
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    Text(
-                        text = "1d", color = MaterialTheme.colorScheme.surface
-                    )
-                    Icon(
-                        Icons.Filled.Delete,
-                        contentDescription = "delete",
-                        tint = MaterialTheme.colorScheme.surface,
-                        modifier = Modifier.size(20.dp))
-                }
-            }
+            notification.seller_name?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.titleMedium,
 
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            notification.message?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodyMedium,
+
+                )
+            }
+            Spacer(modifier = Modifier.height(8.dp))
+            notification.created_at?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Gray
+                )
+            }
         }
     }
 }

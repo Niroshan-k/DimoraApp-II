@@ -46,7 +46,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.dimoraapp.ui.theme.DMserif
 
 @Composable
-fun InfoScreen(navController: NavController, adId: Int) {
+fun InfoScreen(
+    navController: NavController,
+    adId: Int,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+) {
     val context = LocalContext.current
     val sessionManager = remember { SessionManager(context) }
     val repository = remember { AdvertisementRepository(RetrofitClient.api, sessionManager) }
@@ -116,7 +121,11 @@ fun InfoScreen(navController: NavController, adId: Int) {
                     }
                 }
             }
-            BottomNavBar(navController = navController)
+            BottomNavBar(
+                navController = navController,
+                notificationCount = notificationCount,
+                onNotificationsClicked = onNotificationsClicked
+            )
         }
 
         AnimatedVisibility(

@@ -49,7 +49,11 @@ import androidx.compose.ui.graphics.Brush
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun HomeScreen(navController: NavController) {
+fun HomeScreen(
+    navController: NavController,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+) {
     val context = LocalContext.current
 
     val sessionManager = remember { SessionManager(context) }
@@ -93,7 +97,14 @@ fun HomeScreen(navController: NavController) {
             Scaffold(
                 modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                 topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
-                bottomBar = { BottomNavBar(navController = navController) },
+                // FIX: Pass notificationCount and onNotificationsClicked to BottomNavBar
+                bottomBar = {
+                    BottomNavBar(
+                        navController = navController,
+                        notificationCount = notificationCount,
+                        onNotificationsClicked = onNotificationsClicked
+                    )
+                },
                 content = { paddingValues ->
                     LazyColumn(
                         state = scrollState,

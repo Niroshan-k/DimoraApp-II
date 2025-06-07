@@ -17,6 +17,7 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,12 +32,17 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import com.example.dimoraapp.R
+import com.example.dimoraapp.viewmodel.NotificationViewModel
 
 @Composable
-fun BottomNavBar(navController: NavController) {
-
+fun BottomNavBar(
+    navController: NavController,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+){
     var selectedTab by remember { mutableStateOf("") }
 
     NavigationBar(
@@ -84,26 +90,32 @@ fun BottomNavBar(navController: NavController) {
             icon = {
                 BadgedBox(
                     badge = {
-                        Badge(
-                            containerColor = Color.Red
-                        ){
-                            Text(text = "4", color = Color.White)
+                        if (notificationCount > 0) {
+                            Badge(containerColor = Color.Red) {
+                                Text(text = notificationCount.toString(), color = Color.White)
+                            }
                         }
                     }
                 ) {
-                    Icon(Icons.Filled.Notifications, contentDescription = "Notifications",
+                    Icon(
+                        Icons.Filled.Notifications,
+                        contentDescription = "Notifications",
                         tint = if (selectedTab == "notification") MaterialTheme.colorScheme.scrim
-                        else MaterialTheme.colorScheme.surface)
+                        else MaterialTheme.colorScheme.surface
+                    )
                 }
             },
             label = {
                 Text(
                     text = stringResource(R.string.notifications),
-                    fontWeight = FontWeight.Bold)
+                    fontWeight = FontWeight.Bold
+                )
             },
             selected = false,
-            onClick = { navController.navigate("notificationscreen")
-                selectedTab = "notification"}
+            onClick = {
+                onNotificationsClicked()
+                selectedTab = "notification"
+            }
         )
 
         NavigationBarItem(

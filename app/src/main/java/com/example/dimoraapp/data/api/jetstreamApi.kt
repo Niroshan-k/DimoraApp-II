@@ -1,5 +1,6 @@
 package com.example.dimoraapp.data.api
 
+import com.example.dimoraapp.data.model.NotificationsResponse
 import com.example.dimoraapp.data.model.RegisterRequest
 import com.example.dimoraapp.data.model.RegisterResponse
 import com.example.dimoraapp.data.model.ProfileResponse
@@ -30,4 +31,7 @@ interface JetstreamApi {
         @Header("Authorization") token: String,
         @Path("id") id: Int
     ): Response<AdvertisementApiResponse>
+
+    @GET("api/all-notifications") // Corrected endpoint path
+    suspend fun getNotifications(@Header("Authorization") token: String): Response<NotificationsResponse>
 }

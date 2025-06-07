@@ -52,7 +52,11 @@ import com.example.dimoraapp.navigation.BottomNavBar
 import com.example.dimoraapp.ui.theme.DMserif
 
 @Composable
-fun SearchScreen (navController: NavController) {
+fun SearchScreen (
+    navController: NavController,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+) {
     Box(modifier = Modifier.fillMaxSize().background(color = MaterialTheme.colorScheme.background)) {
 
         // Content layout
@@ -78,7 +82,11 @@ fun SearchScreen (navController: NavController) {
             }
 
             // Bottom navigation bar
-            BottomNavBar(navController = navController)
+            BottomNavBar(
+                navController = navController,
+                notificationCount = notificationCount,
+                onNotificationsClicked = onNotificationsClicked
+            )
         }
     }
 }

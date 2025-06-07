@@ -46,7 +46,11 @@ import com.example.dimoraapp.navigation.BottomNavBar
 import com.example.dimoraapp.ui.theme.DMserif
 
 @Composable
-fun MoreHouseScreen(navController: NavController) {
+fun MoreHouseScreen(
+    navController: NavController,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+) {
     var isDrawerOpen by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(color = MaterialTheme.colorScheme.background)) {
@@ -74,7 +78,11 @@ fun MoreHouseScreen(navController: NavController) {
             }
 
             // Bottom navigation bar
-            BottomNavBar(navController = navController)
+            BottomNavBar(
+                navController = navController,
+                notificationCount = notificationCount,
+                onNotificationsClicked = onNotificationsClicked
+            )
         }
 
         // Side drawer for navigation

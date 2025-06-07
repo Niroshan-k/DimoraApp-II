@@ -35,7 +35,11 @@ import com.example.dimoraapp.viewmodel.ProfileViewModelFactory
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileScreen(navController: NavController) {
+fun ProfileScreen(
+    navController: NavController,
+    notificationCount: Int,
+    onNotificationsClicked: () -> Unit
+) {
 
     // Retrieve the context
     val context = LocalContext.current
@@ -86,7 +90,11 @@ fun ProfileScreen(navController: NavController) {
                     Scaffold(
                         modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                         topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
-                        bottomBar = { BottomNavBar(navController = navController) },
+                        bottomBar = { BottomNavBar(
+                            navController = navController,
+                            notificationCount = notificationCount,
+                            onNotificationsClicked = onNotificationsClicked
+                        ) },
                         content = { paddingValues ->
                             LazyColumn(
                                 modifier = Modifier

@@ -3,10 +3,15 @@ package com.example.dimoraapp.navigation
 import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import com.example.dimoraapp.data.api.RetrofitClient
+import com.example.dimoraapp.data.repositor.NotificationRepository
 import com.example.dimoraapp.screens.GetStartedScreen
 import com.example.dimoraapp.screens.SignInScreen
 import com.example.dimoraapp.screens.SignUpScreen
@@ -17,13 +22,22 @@ import com.example.dimoraapp.screens.NotificationScreen
 import com.example.dimoraapp.screens.ProfileScreen
 import com.example.dimoraapp.screens.SearchScreen
 import com.example.dimoraapp.utils.SessionManager
+import com.example.dimoraapp.viewmodel.NotificationViewModel
+import com.example.dimoraapp.viewmodel.NotificationViewModelFactory
 
 @Composable
 fun AppNavigation(context: Context) {
     val navController: NavHostController = rememberNavController()
-
-    // Initialize SessionManager
     val sessionManager = SessionManager(context)
+    val token = sessionManager.getToken()
+
+    // --- Create your repository and ViewModel here! ---
+    val repository = remember { NotificationRepository(RetrofitClient.api) }
+    val notificationViewModel: NotificationViewModel = viewModel(
+        factory = NotificationViewModelFactory(repository, token ?: "") as androidx.lifecycle.ViewModelProvider.Factory
+    )
+    val notificationCountState = notificationViewModel.notificationCount.collectAsState()
+    val notificationCount = notificationCountState.value
 
     // Determine the start destination based on session validity
     val startDestination = if (sessionManager.isSessionValid()) {
@@ -40,17 +54,44 @@ fun AppNavigation(context: Context) {
         composable("getstarted") { GetStartedScreen(navController) }
         composable("signup") { SignUpScreen(navController) }
         composable("signin") { SignInScreen(navController) }
-        composable("homescreen") { HomeScreen(navController) }
+        composable("homescreen") { HomeScreen(
+            navController = navController,
+            notificationCount = notificationCount,
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+        ) }
         composable("infoscreen/{adId}") { backStackEntry ->
             val adId = backStackEntry.arguments?.getString("adId")?.toIntOrNull()
             if (adId != null) {
-                InfoScreen(navController, adId)
+                InfoScreen(
+                    navController = navController,
+                    adId = adId,
+                    notificationCount = notificationCount,
+                    onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+                )
             }
         }
-        composable("profilescreen"){ ProfileScreen(navController) }
-        composable("searchscreen"){ SearchScreen(navController) }
-        composable("notificationscreen"){ NotificationScreen(navController) }
-        composable("morehousescreen"){ MoreHouseScreen(navController) }
+        composable("profilescreen"){ ProfileScreen(
+            navController = navController,
+            notificationCount = notificationCount,
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+        ) }
+        composable("searchscreen"){ SearchScreen(
+            navController = navController,
+            notificationCount = notificationCount,
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+        ) }
+        composable("notificationscreen"){ NotificationScreen(
+            token = token ?: "",
+            navController = navController,
+            notificationViewModel = notificationViewModel,
+            notificationCount = notificationCount,
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+        ) }
+        composable("morehousescreen"){ MoreHouseScreen(
+            navController = navController,
+            notificationCount = notificationCount,
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+        ) }
     }
 
     // Clear session and navigate to sign-in if session becomes invalid (optional)
