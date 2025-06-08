@@ -7,77 +7,123 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardColors
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.dimoraapp.R
+import com.example.dimoraapp.data.api.RetrofitClient
+import com.example.dimoraapp.data.repositor.AdvertisementRepository
+import com.example.dimoraapp.model.Advertisement
 import com.example.dimoraapp.navigation.BottomNavBar
 import com.example.dimoraapp.ui.theme.DMserif
+import com.example.dimoraapp.utils.SessionManager
+import com.example.dimoraapp.viewmodel.AdvertisementViewModel
+import com.example.dimoraapp.viewmodel.AdvertisementViewModelFactory
 
 @Composable
 fun MoreHouseScreen(
     navController: NavController,
     notificationCount: Int,
-    onNotificationsClicked: () -> Unit
+    onNotificationsClicked: () -> Unit,
+    category: String // "latest", "luxury", "modern", "traditional"
 ) {
     var isDrawerOpen by remember { mutableStateOf(false) }
     val context = LocalContext.current
     val profileImagePath = getSavedProfileImagePath(context)
 
-    Box(modifier = Modifier.fillMaxSize().background(color = MaterialTheme.colorScheme.background)) {
+    val sessionManager = remember { SessionManager(context) }
+    val repository = remember { AdvertisementRepository(RetrofitClient.api, sessionManager) }
+    val viewModel: AdvertisementViewModel = viewModel(
+        factory = AdvertisementViewModelFactory(repository)
+    )
+    val ads by viewModel.ads
 
-        // Content layout
+    // Fetch ads when screen loads
+    LaunchedEffect(Unit) { viewModel.fetchAdvertisements() }
+
+    val filteredAds = when (category.lowercase()) {
+        "luxury" -> ads.filter { it.property_details?.house_details?.house_type == "luxury" }
+        "modern" -> ads.filter { it.property_details?.house_details?.house_type == "modern" }
+        "traditional" -> ads.filter { it.property_details?.house_details?.house_type == "traditional" }
+        // "latest" could be all ads sorted by date if you have a date property. Here, just show all.
+        else -> ads
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(color = MaterialTheme.colorScheme.background)
+    ) {
         Column(
             modifier = Modifier.fillMaxSize()
         ) {
+            // Top Navigation Bar
+            TopNavBarInfo(
+                goToHomePage = { navController.navigate("homescreen") },
+                onMenuClick = { isDrawerOpen = true }
+            )
 
-            // LazyColumn for scrollable content
+            // Title
+            Text(
+                text = when (category.lowercase()) {
+                    "luxury" -> "Luxury Houses"
+                    "modern" -> "Modern Houses"
+                    "traditional" -> "Traditional Houses"
+                    else -> "Latest Houses"
+                },
+                fontFamily = DMserif,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.secondary,
+                modifier = Modifier.padding(16.dp)
+            )
+
+            // LazyColumn for filtered ads
             LazyColumn(
                 modifier = Modifier
-                    .weight(1f) // Take up remaining vertical space
+                    .weight(1f)
                     .fillMaxWidth(),
             ) {
-                item {
-                    TopNavBarInfo(
-                        goToHomePage = { navController.navigate("homescreen")},
-                        onMenuClick = { isDrawerOpen = true })
+                items(filteredAds.size) { idx ->
+                    val ad = filteredAds[idx]
+                    SmallAdvertisementCard(advertisement = ad) {
+                        navController.navigate("infoscreen/${ad.id}")
+                    }
                 }
-                item {
-                    Cardlist(navController)
+                if (filteredAds.isEmpty()) {
+                    item {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No advertisements found for this category.",
+                                color = Color.Gray,
+                                fontSize = 16.sp
+                            )
+                        }
+                    }
                 }
-
             }
 
             // Bottom navigation bar
@@ -103,75 +149,72 @@ fun MoreHouseScreen(
     }
 }
 
-
 @Composable
-fun HouseCard(onClick: () -> Unit, picture:Painter, name:String, price:String) {
-
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-    val padding = if (isLandscape) 64.dp else 16.dp
+fun SmallAdvertisementCard(
+    advertisement: Advertisement,
+    onClick: () -> Unit
+) {
     Card(
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
-            .padding(start = padding,8.dp, end = padding, bottom = 8.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
             .fillMaxWidth()
-            .clickable{onClick()}
-            .shadow(6.dp, shape = RoundedCornerShape(8.dp)),
-        colors = CardColors(
+            .clickable { onClick() }
+            .shadow(2.dp, shape = RoundedCornerShape(8.dp)),
+        colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.background,
-            contentColor = MaterialTheme.colorScheme.surface,
-            disabledContentColor = Color.Transparent,
-            disabledContainerColor = Color.Transparent
+            contentColor = MaterialTheme.colorScheme.surface
         )
-    ){
+    ) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.padding(8.dp)
         ) {
-            Image(
-                painter = picture,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier.width(100.dp).height(100.dp).clip(shape = RoundedCornerShape(8.dp))
-            )
-            Spacer(modifier = Modifier.width(16.dp))
-            Box(
-                Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.CenterEnd
-            ){
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    modifier = Modifier.padding(8.dp)
-                ) {
-                    Text(
-                        text = price, fontSize = 20.sp, fontWeight = FontWeight.Bold,
-                        fontFamily = DMserif
-                    )
-                    Text(
-                        text = name, fontSize = 20.sp, fontWeight = FontWeight.Bold
-                    )
-                }
+            val imageUrl = advertisement.images.firstOrNull()?.data
+            if (imageUrl != null) {
+                AsyncImage(
+                    model = imageUrl,
+                    contentDescription = advertisement.title,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .width(80.dp)
+                        .height(80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Gray)
+                )
             }
-
+            Spacer(modifier = Modifier.width(16.dp))
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = advertisement.title ?: "No title",
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "Rs. ${advertisement.property_details?.price ?: "-"}",
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Text(
+                    text = advertisement.property_details?.location ?: "-",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
         }
-    }
-}
-
-@Composable
-fun Cardlist(navController: NavController) {
-    val houseList = listOf(
-        Triple(R.drawable.image1, R.string.Heading1, R.string.price1),
-        Triple(R.drawable.image2, R.string.Heading2, R.string.price2),
-        Triple(R.drawable.image3, R.string.Heading3, R.string.price3),
-        Triple(R.drawable.image4, R.string.Heading4, R.string.price4),
-    )
-
-    houseList.forEach { (image, heading, price) ->
-        HouseCard(
-            onClick = { navController.navigate("infoscreen") },
-            painterResource(image),
-            stringResource(heading),
-            stringResource(price)
-        )
     }
 }

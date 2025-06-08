@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
+import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -17,6 +18,7 @@ import com.example.dimoraapp.screens.SignInScreen
 import com.example.dimoraapp.screens.SignUpScreen
 import com.example.dimoraapp.screens.HomeScreen
 import com.example.dimoraapp.screens.InfoScreen
+import com.example.dimoraapp.screens.InviteContactsScreen
 import com.example.dimoraapp.screens.MoreHouseScreen
 import com.example.dimoraapp.screens.NotificationScreen
 import com.example.dimoraapp.screens.ProfileScreen
@@ -34,7 +36,7 @@ fun AppNavigation(context: Context) {
     // --- Create your repository and ViewModel here! ---
     val repository = remember { NotificationRepository(RetrofitClient.api) }
     val notificationViewModel: NotificationViewModel = viewModel(
-        factory = NotificationViewModelFactory(repository, token ?: "") as androidx.lifecycle.ViewModelProvider.Factory
+        factory = NotificationViewModelFactory(repository, token ?: "") as ViewModelProvider.Factory
     )
     val notificationCountState = notificationViewModel.notificationCount.collectAsState()
     val notificationCount = notificationCountState.value
@@ -78,7 +80,7 @@ fun AppNavigation(context: Context) {
         composable("searchscreen"){ SearchScreen(
             navController = navController,
             notificationCount = notificationCount,
-            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() },
         ) }
         composable("notificationscreen"){ NotificationScreen(
             token = token ?: "",
@@ -87,18 +89,28 @@ fun AppNavigation(context: Context) {
             notificationCount = notificationCount,
             onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
         ) }
-        composable("morehousescreen"){ MoreHouseScreen(
+        composable("morehousescreen/{category}"){ backStackEntry ->
+            val category = backStackEntry.arguments?.getString("category") ?: "latest"
+            MoreHouseScreen(
             navController = navController,
             notificationCount = notificationCount,
-            onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+            onNotificationsClicked = { notificationViewModel.clearNotificationCount() },
+            category = category
         ) }
+        composable("invite_contacts"){
+            InviteContactsScreen(
+                navController = navController,
+                notificationCount = notificationCount,
+                onNotificationsClicked = { notificationViewModel.clearNotificationCount() }
+            )
+        }
     }
 
     // Clear session and navigate to sign-in if session becomes invalid (optional)
     LaunchedEffect(Unit) {
         if (!sessionManager.isSessionValid()) {
             sessionManager.clearSession()
-            navController.navigate("signin") {
+            navController.navigate("getstarted") {
                 popUpTo(0) { inclusive = true } // Clear backstack
             }
         }

@@ -1,6 +1,6 @@
 package com.example.dimoraapp.data.repositor
 
-import com.example.dimoraapp.data.api.JetstreamApi
+import JetstreamApi
 import com.example.dimoraapp.model.Notification
 
 class NotificationRepository(private val api: JetstreamApi) {

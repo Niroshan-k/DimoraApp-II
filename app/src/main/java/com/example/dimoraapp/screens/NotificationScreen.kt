@@ -41,6 +41,7 @@ fun NotificationScreen(
     val error by viewModel.error.collectAsState()
     val context = LocalContext.current
     val profileImagePath = getSavedProfileImagePath(context)
+    val serverError = rememberServerErrorMessage()
     LaunchedEffect(Unit) {
         notificationViewModel.clearNotificationCount()
     }
@@ -69,12 +70,14 @@ fun NotificationScreen(
             contentAlignment = Alignment.TopCenter
         ) {
             when {
+
                 loading -> CircularProgressIndicator()
-                error != null -> Text(
-                    "Error: $error",
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(32.dp)
-                )
+                error != null ->
+                    if (error != null) {
+                        if (serverError != null) {
+                            ErrorScreenWithImage(serverError)
+                        }
+                    }
                 notifications.isEmpty() -> Text(
                     "No notifications found or failed to load notifications.",
                     color = MaterialTheme.colorScheme.onBackground,

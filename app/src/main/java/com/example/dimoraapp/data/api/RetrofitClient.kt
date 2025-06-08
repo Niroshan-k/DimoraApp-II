@@ -1,5 +1,6 @@
 package com.example.dimoraapp.data.api
 
+import JetstreamApi
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 

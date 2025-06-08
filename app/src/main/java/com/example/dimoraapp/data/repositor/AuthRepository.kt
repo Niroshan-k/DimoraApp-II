@@ -1,7 +1,7 @@
 package com.example.dimoraapp.data.repositor
 
 import android.util.Log
-import com.example.dimoraapp.data.api.JetstreamApi
+import JetstreamApi
 import com.example.dimoraapp.data.model.RegisterRequest
 import com.example.dimoraapp.data.model.RegisterResponse
 import com.example.dimoraapp.data.model.ProfileResponse

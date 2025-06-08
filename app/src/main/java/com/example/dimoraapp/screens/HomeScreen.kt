@@ -71,6 +71,7 @@ fun HomeScreen(
     val error by viewModel.error
 
     LaunchedEffect(ads) {
+        // For debug purposes
         println("LaunchedEffect triggered! ads.size = ${ads.size}")
         ads.forEach {
             println("Ad: ${it.title}, house: ${it.property_details?.house_details}")
@@ -104,7 +105,6 @@ fun HomeScreen(
             Scaffold(
                 modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
                 topBar = { TopNavBar(onMenuClick = { isDrawerOpen = true }, scrollBehavior = scrollBehavior) },
-                // FIX: Pass notificationCount and onNotificationsClicked to BottomNavBar
                 bottomBar = {
                     BottomNavBar(
                         navController = navController,
@@ -120,7 +120,7 @@ fun HomeScreen(
                             .fillMaxSize()
                             .padding(paddingValues),
                     ) {
-                        item{
+                        item {
                             Text(
                                 text = "Discover Your",
                                 fontFamily = DMserif,
@@ -130,7 +130,7 @@ fun HomeScreen(
                                 modifier = Modifier.padding(start = 16.dp, top = 16.dp)
                             )
                         }
-                        item{
+                        item {
                             Text(
                                 text = "New House!",
                                 fontFamily = DMserif,
@@ -140,52 +140,85 @@ fun HomeScreen(
                                 modifier = Modifier.padding(start = 16.dp)
                             )
                         }
-                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                         item { Grid() }
-                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                         item {
-                            if (error != null) {
-                                if (serverError != null) {
-                                    ErrorScreenWithImage(serverError)
+                            when {
+                                error != null -> {
+                                    if (serverError != null) {
+                                        ErrorScreenWithImage(serverError)
+                                    } else {
+                                        // JSON could not be loaded, show built-in fallback
+                                        Box(
+                                            Modifier
+                                                .fillMaxWidth()
+                                                .padding(32.dp),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "Oops! Something went wrong.\nWe're sorry, but we're having trouble reaching our servers. Please try again later.",
+                                                color = Color.Red,
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 18.sp,
+                                                textAlign = TextAlign.Center
+                                            )
+                                        }
+                                    }
                                 }
-                            } else {
-                                Heading("Latest")
+                                ads.isEmpty() -> {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxSize()
+                                            .padding(32.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No advertisements available at the moment.",
+                                            fontSize = 18.sp,
+                                            color = Color.Gray
+                                        )
+                                    }
+                                }
+                                else -> {
+                                    Heading("Latest")
+                                }
                             }
                         }
                         item {
                             AdvertisementsRow(ads = ads, navController = navController)
                         }
-                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
-                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
-                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen/latest") }) }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                         item { Grid2() }
-                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                         item { Heading("Luxury") }
                         item {
                             if (luxuryAds.isNotEmpty()) {
                                 AdvertisementsRow(ads = luxuryAds, navController = navController)
                             }
                         }
-                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
-                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
-                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen/luxury") }) }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                         item { Heading("Modern") }
                         item {
                             if (modernAds.isNotEmpty()) {
                                 AdvertisementsRow(ads = modernAds, navController = navController)
                             }
                         }
-                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
-                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
-                        item { Spacer(modifier = Modifier.padding(top = 16.dp)) }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen/modern") }) }
+                        item { Spacer(modifier = Modifier.height(16.dp)) }
                         item { Heading("Traditional") }
                         item {
                             if (traditionalAds.isNotEmpty()) {
                                 AdvertisementsRow(ads = traditionalAds, navController = navController)
                             }
                         }
-                        item { Spacer(modifier = Modifier.padding(top = 8.dp)) }
-                        item { MoreButton(onClick = { navController.navigate("morehousescreen") }) }
+                        item { Spacer(modifier = Modifier.height(8.dp)) }
+                        item { MoreButton(onClick = { navController.navigate("morehousescreen/traditional") }) }
                     }
                 }
             )
@@ -225,38 +258,38 @@ fun TopNavBar(onMenuClick: () -> Unit, scrollBehavior: TopAppBarScrollBehavior) 
             containerColor = Color.Transparent,
             scrolledContainerColor = Color.Transparent
         ),
-        scrollBehavior = scrollBehavior // Attach scroll behavior
+        scrollBehavior = scrollBehavior
     )
 }
 
 @Composable
 fun ErrorScreenWithImage(error: ServerErrorMessage) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        // You can use painterResource or load from assets
         Image(
-            painter = painterResource(id = R.drawable.server_error), // or use rememberAsyncImagePainter for assets
+            painter = painterResource(id = R.drawable.server_error),
             contentDescription = null,
-            modifier = Modifier.size(180.dp)
+            modifier = Modifier.size(160.dp)
         )
-        Spacer(modifier = Modifier.height(24.dp))
-        Text(
-            text = error.title,
-            fontWeight = FontWeight.Bold,
-            fontSize = 22.sp,
-            color = Color.Gray
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        Text(
-            text = error.message,
-            fontSize = 16.sp,
-            color = Color.Gray,
-            textAlign = TextAlign.Center
-        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column {
+            Text(
+                text = error.title,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = Color.Red
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(
+                text = error.message,
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+        }
     }
 }
 
@@ -284,17 +317,17 @@ fun Grid() {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         CategoryBox(
-            imageRes = R.drawable.image1, // Replace with your image resource
+            imageRes = R.drawable.image1,
             label = "Luxury",
             modifier = Modifier.weight(1f)
         )
         CategoryBox(
-            imageRes = R.drawable.image2, // Replace with your image resource
+            imageRes = R.drawable.image2,
             label = "Modern",
             modifier = Modifier.weight(1f)
         )
         CategoryBox(
-            imageRes = R.drawable.image3, // Replace with your image resource
+            imageRes = R.drawable.image3,
             label = "Traditional",
             modifier = Modifier.weight(1f)
         )
@@ -310,13 +343,13 @@ fun Grid2() {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         CategoryBox2(
-            imageRes = R.drawable.seller, // Replace with your image resource
+            imageRes = R.drawable.seller,
             label = "Seller",
             label2 = "Become a verified Seller in Dimora",
             modifier = Modifier.weight(1f)
         )
         CategoryBox2(
-            imageRes = R.drawable.contractor, // Replace with your image resource
+            imageRes = R.drawable.contractor,
             label = "Contractor",
             label2 = "Become a verified Contractor in Dimora",
             modifier = Modifier.weight(1f)
@@ -331,15 +364,14 @@ fun rememberServerErrorMessage(): ServerErrorMessage? {
 
     LaunchedEffect(Unit) {
         try {
-            context.assets.open("server_error.json").use { input ->
+            context.assets.open("serverError.json").use { input ->
                 val reader = InputStreamReader(input)
                 errorMessage = Gson().fromJson(reader, ServerErrorMessage::class.java)
             }
         } catch (e: Exception) {
-            // Fallback if file missing
             errorMessage = ServerErrorMessage(
-                title = "Server Error",
-                message = "We are unable to connect to the server.",
+                title = "Oops! Something went wrong.",
+                message = "We're sorry, but we're having trouble reaching our servers. Please try again later.",
                 imageAsset = "server_error.png"
             )
         }
@@ -358,8 +390,7 @@ fun CategoryBox(imageRes: Int, label: String, modifier: Modifier = Modifier) {
             painter = painterResource(id = imageRes),
             contentDescription = label,
             contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxSize()
+            modifier = Modifier.fillMaxSize()
         )
         Box(
             modifier = Modifier
@@ -370,12 +401,10 @@ fun CategoryBox(imageRes: Int, label: String, modifier: Modifier = Modifier) {
             text = label,
             color = Color.White,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .align(Alignment.Center)
+            modifier = Modifier.align(Alignment.Center)
         )
     }
 }
-
 
 @Composable
 fun CategoryBox2(
@@ -395,7 +424,6 @@ fun CategoryBox2(
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
-        // Optional: gradient overlay for better text readability
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -467,14 +495,18 @@ fun AdvertisementsRow(ads: List<Advertisement>, navController: NavController) {
         horizontalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         items(ads) { ad ->
-            AdvertisementCard(advertisement = ad, onShareClick = {
-                val url = "https://dimoraland.onrender.com/advertisement/${ad.id}"
-                val shareIntent = Intent(Intent.ACTION_SEND).apply {
-                    type = "text/plain"
-                    putExtra(Intent.EXTRA_TEXT, url)
-                }
-                context.startActivity(Intent.createChooser(shareIntent, "Share Advertisement"))
-            },onCardClick = { navController.navigate("infoscreen/${ad.id}") })
+            AdvertisementCard(
+                advertisement = ad,
+                onShareClick = {
+                    val url = "https://dimoraland.onrender.com/advertisement/${ad.id}"
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_TEXT, url)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, "Share Advertisement"))
+                },
+                onCardClick = { navController.navigate("infoscreen/${ad.id}") }
+            )
         }
     }
 }
@@ -495,10 +527,8 @@ fun AdvertisementCard(
             .clickable { onCardClick() },
         shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(8.dp)
-
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
-            // Image with gradient overlay
             if (!imageUrl.isNullOrEmpty()) {
                 AsyncImage(
                     model = imageUrl,
@@ -524,7 +554,6 @@ fun AdvertisementCard(
                 )
             }
 
-            // Status Chip (top right)
             val isActive = advertisement.status?.lowercase() == "active"
             Box(
                 modifier = Modifier
@@ -546,7 +575,6 @@ fun AdvertisementCard(
                 }
             }
 
-            // Card content
             Column(
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -562,9 +590,7 @@ fun AdvertisementCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
                     text = advertisement.property_details?.location ?: "",
                     fontSize = 14.sp,
@@ -572,25 +598,19 @@ fun AdvertisementCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // House type or fallback
                 Text(
                     text = if (house != null) "Type: ${house.house_type?.replaceFirstChar { it.uppercase() }}" else "No house details",
                     color = Color.White.copy(alpha = 0.9f),
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium
                 )
-
                 Spacer(modifier = Modifier.height(10.dp))
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
-                    // Price Chip
                     Surface(
                         color = Color(0xFF1DE9B6),
                         shape = RoundedCornerShape(12.dp),
@@ -604,10 +624,9 @@ fun AdvertisementCard(
                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
                         )
                     }
-
                     Row {
                         IconButton(
-                            onClick = {/* TODO: Implement favorite action */ },
+                            onClick = { /* TODO: Implement favorite action */ },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
@@ -640,7 +659,7 @@ fun SideNavBar(
 ) {
     val context = LocalContext.current
     val configuration = LocalConfiguration.current
-    val isLandscape = configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
     val padding = if (isLandscape) 64.dp else 16.dp
 
     Box(
@@ -704,27 +723,6 @@ fun SideNavBar(
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(text = "Settings", color = MaterialTheme.colorScheme.surface, fontSize = 18.sp)
             }
-            // Add the Send Invite button
-            Spacer(modifier = Modifier.height(16.dp))
-            Button(
-                onClick = { sendInvite(context) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp)
-            ) {
-                Text("Send Invite")
-            }
         }
     }
-}
-
-fun sendInvite(context: Context) {
-    val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/plain"
-        putExtra(
-            Intent.EXTRA_TEXT,
-            "Hey! Join me on DimoraApp. Download it here: https://play.google.com/store/apps/details?id=${context.packageName}"
-        )
-    }
-    context.startActivity(Intent.createChooser(intent, "Share via"))
 }

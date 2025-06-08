@@ -27,6 +27,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.NetworkWifi
 import androidx.compose.material.icons.filled.SignalCellularAlt
+import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -304,7 +306,7 @@ fun ProfileContent(
     onSaveOffline: () -> Unit,
     onUpdate: () -> Unit,
     profileImagePath: String?,
-    onProfileImageChanged: (String) -> Unit
+    onProfileImageChanged: (String) -> Unit,
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -335,7 +337,11 @@ fun ProfileContent(
                     contact = profileState.contact,
                     onSaveOffline = onSaveOffline,
                     onLogOut = onLogOut,
-                    onUpdate = onUpdate
+                    onUpdate = onUpdate,
+                    onInviteUsers = {
+                        // Your navigation logic here!
+                        navController.navigate("invite_contacts")
+                    }
                 )
                 SystemInfoSection(
                     modifier = Modifier
@@ -358,19 +364,24 @@ fun ProfileContent(
                 profileImagePath = profileImagePath,
                 onImageChanged = onProfileImageChanged
             )
+            SystemInfoSection(
+                modifier = Modifier
+                    .padding(top = 12.dp)
+                    .fillMaxWidth()
+            )
             ProfileDetails(
                 email = profileState.email,
                 username = profileState.username,
                 contact = profileState.contact,
                 onSaveOffline = onSaveOffline,
                 onLogOut = onLogOut,
-                onUpdate = onUpdate
+                onUpdate = onUpdate,
+                onInviteUsers = {
+                    // Your navigation logic here!
+                    navController.navigate("invite_contacts")
+                }
             )
-            SystemInfoSection(
-                modifier = Modifier
-                    .padding(top = 12.dp)
-                    .fillMaxWidth()
-            )
+
         }
     }
 }
@@ -404,7 +415,8 @@ fun ProfileDetails(
     contact: String,
     onSaveOffline: () -> Unit,
     onLogOut: () -> Unit,
-    onUpdate: () -> Unit
+    onUpdate: () -> Unit,
+    onInviteUsers: () -> Unit
 ) {
     val configuration = LocalConfiguration.current
     val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -483,19 +495,40 @@ fun ProfileDetails(
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        Button(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp)
-                .shadow(4.dp, shape = MaterialTheme.shapes.medium),
-            onClick = onSaveOffline,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color.Blue,
-                contentColor = Color.White
-            ),
-            shape = MaterialTheme.shapes.medium
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
-            Text(text = "Save Profile Details", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Button(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .padding(end = 8.dp)
+                    .shadow(4.dp, shape = MaterialTheme.shapes.medium),
+                onClick = onSaveOffline,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.Blue,
+                    contentColor = Color.White
+                ),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(text = "Save Profile", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+            Button(
+                modifier = Modifier
+                    .weight(1f)
+                    .height(50.dp)
+                    .padding(start = 8.dp)
+                    .shadow(4.dp, shape = MaterialTheme.shapes.medium),
+                onClick = onInviteUsers,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color.LightGray,
+                    contentColor = Color.White
+                ),
+                shape = MaterialTheme.shapes.medium
+            ) {
+                Text(text = "Invite Users", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
         }
 
         Spacer(modifier = Modifier.height(32.dp))
@@ -637,77 +670,91 @@ fun SystemInfoSection(
         }
     }
 
-    val androidVersion = "Android ${Build.VERSION.RELEASE} (SDK ${Build.VERSION.SDK_INT})"
     val batteryStatusMsg =
         if (batteryPct in 0..20)
             "Battery is low ($batteryPct%). Connect your device to a charger!"
         else null
 
     val infoList = listOf(
-        Triple(Icons.Default.NetworkWifi, "Network", networkPair.first),
-        Triple(Icons.Default.SignalCellularAlt, "Network Status", networkPair.second),
+        Triple(Icons.Default.Wifi, "Network", networkPair.first),
+        Triple(Icons.Default.SignalCellularAlt, "Status", networkPair.second),
         Triple(Icons.Default.BatteryStd, "Battery", if (batteryPct >= 0) "$batteryPct%" else "N/A"),
-        Triple(Icons.Default.Info, "Android Version", androidVersion),
-        Triple(Icons.Default.Info, "Device Model", Build.MODEL),
     )
 
-    LazyColumn(
+    LazyRow(
         modifier = modifier
             .fillMaxWidth()
             .padding(horizontal = 24.dp, vertical = 0.dp)
-            .heightIn(max = 300.dp), // makes info card scrollable
-        userScrollEnabled = true
+            .heightIn(max = 150.dp),
+        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 16.dp)
     ) {
-        item {
+        items(infoList) { (icon, label, value) ->
             Card(
                 modifier = Modifier
-                    .fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceVariant
-                ),
-                elevation = CardDefaults.cardElevation(6.dp)
+                    .width(180.dp)
+                    .padding(horizontal = 8.dp),
+                shape = RoundedCornerShape(16.dp),
+                elevation = CardDefaults.cardElevation(4.dp)
             ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(
-                        "Device Info",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary
+                Row(
+                    modifier = Modifier
+                        .padding(16.dp)
+                        .fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = label,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(32.dp)
                     )
-                    Divider(modifier = Modifier.padding(vertical = 10.dp))
-                }
-            }
-        }
-        items(infoList) { (icon, label, value) ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 40.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = label,
-                    tint = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.size(28.dp)
-                )
-                Spacer(modifier = Modifier.width(16.dp))
-                Column {
-                    Text(label, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.secondary)
-                    Text(value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.secondary
+                        )
+                        Text(
+                            value,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
         }
         if (!batteryStatusMsg.isNullOrBlank()) {
             item {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    batteryStatusMsg,
-                    color = Color.Red,
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(horizontal = 40.dp)
-                )
+                Card(
+                    modifier = Modifier
+                        .width(220.dp)
+                        .padding(horizontal = 8.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                    elevation = CardDefaults.cardElevation(4.dp)
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .padding(16.dp)
+                            .fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.BatteryStd,
+                            contentDescription = "Battery Warning",
+                            tint = Color.Red,
+                            modifier = Modifier.size(32.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            batteryStatusMsg,
+                            color = Color.Red,
+                            style = MaterialTheme.typography.bodyLarge,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             }
         }
     }

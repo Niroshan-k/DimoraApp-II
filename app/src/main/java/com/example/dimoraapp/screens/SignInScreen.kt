@@ -1,8 +1,13 @@
 package com.example.dimoraapp.screens
 
+import android.annotation.SuppressLint
+import android.content.Context
 import android.content.res.Configuration
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.util.Patterns
 import android.widget.Toast
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -24,6 +29,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,6 +38,7 @@ import com.example.dimoraapp.viewmodel.SignInViewModel
 import com.example.dimoraapp.R
 import com.example.dimoraapp.ui.theme.DMserif
 import com.example.dimoraapp.utils.SessionManager
+import kotlinx.coroutines.delay
 import org.json.JSONObject
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -52,14 +59,28 @@ fun SignInScreen(navController: NavController) {
     var passwordError by remember { mutableStateOf<String?>(null) }
     var generalError by remember { mutableStateOf<String?>(null) } // For backend general errors
 
-    // Check if session is valid
-//    if (sessionManager.isSessionValid()) {
-//        // If session is valid, navigate directly to the home screen
-//        navController.navigate("homescreen") {
-//            popUpTo("signin") { inclusive = true } // Remove SignIn from the back stack
-//            launchSingleTop = true
-//        }
-//    }
+    var isOnline by remember { mutableStateOf<Boolean>(
+        isOnline(context)
+    ) }
+    var refreshKey by remember { mutableStateOf(0) }
+
+    // Optionally, monitor for changes
+    LaunchedEffect(refreshKey) {
+        isOnline = isOnline(context)
+        if (!isOnline) {
+            // Optionally, keep polling in background
+            while (!isOnline) {
+                delay(2000)
+                isOnline = isOnline(context)
+            }
+        }
+    }
+    if (!isOnline) {
+        OfflineFallback(
+            onRefresh = { refreshKey++ }
+        )
+        return
+    }
 
     Box(
         modifier = Modifier
@@ -234,6 +255,54 @@ fun SignInScreen(navController: NavController) {
             shape = CircleShape
         ) {
             Icon(imageVector = Icons.Filled.ArrowForward, contentDescription = "Navigate to home")
+        }
+    }
+}
+
+@SuppressLint("ServiceCast")
+fun isOnline(context: Context): Boolean {
+    val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    val network = cm.activeNetwork
+    val capabilities = cm.getNetworkCapabilities(network)
+    return capabilities != null && (
+            capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ||
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)
+            )
+}
+
+@Composable
+fun OfflineFallback(onRefresh: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.White),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // Use your offline image
+        Image(
+            painter = painterResource(R.drawable.ic_offline), // Put your image in res/drawable
+            contentDescription = "Offline",
+            modifier = Modifier.size(140.dp)
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        Text(
+            text = "You're Offline",
+            fontWeight = FontWeight.Bold,
+            color = Color.Red,
+            fontSize = 22.sp
+        )
+        Text(
+            text = "Please check your internet connection to continue.",
+            color = Color.Gray,
+            fontSize = 16.sp,
+            modifier = Modifier.padding(top = 12.dp),
+            textAlign = TextAlign.Center
+        )
+        Spacer(modifier = Modifier.height(32.dp))
+        Button(onClick = onRefresh) {
+            Text("Refresh")
         }
     }
 }
